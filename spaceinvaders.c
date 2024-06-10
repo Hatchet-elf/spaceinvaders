@@ -57,6 +57,8 @@ int drawintroscreen();
 // or returns 0 if they choose not to play again
 int drawgameoverscreen(int code, int *score);
 
+int drawsuccess(int code, int *score);
+
 int drawborder();
 
 int drawplayer(spaceship *playership);
@@ -72,9 +74,12 @@ int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, in
 bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet);
 
 // initiate the invasion fleet
-int initinvasion(spaceship invasion[][INVASIONHEIGHT]);
+int initinvasion(spaceship invasion[][INVASIONHEIGHT], int invasionwidth, int invasionheight);
 
 // draw the invasion fleet
+// this function returns the number of invasion spaceships that have been moved
+// when it returns 0 then there are no remaining invasion spaceships then they have all been
+// killed by the player
 int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection);
 
 // change the invasiondirection variable for the invasion fleet
@@ -89,6 +94,9 @@ int main(int argc, char *argv[]){
 	int score = 0;
 	int lives = 5;
 
+	int invasionwidth = INVASIONWIDTH;
+	int invasionheight = INVASIONHEIGHT;
+
 	// this is used to store the current level in the game
 	int currentgamelevel = 0;
 
@@ -98,12 +106,10 @@ int main(int argc, char *argv[]){
 	struct timespec recenttime, previoustime;
 	uint64_t elapsedtime = 0;
 
-	// initiate the invasion
 	int invasiondirection = 3;
 	spaceship invasion[INVASIONWIDTH][INVASIONHEIGHT];
 
 	bullet playerbullet;
-
 	bullet alienbullet;
 
 	// declare and intialize the player spaceship
@@ -118,14 +124,14 @@ int main(int argc, char *argv[]){
 	
 	// init the screen for curses and initialise a few things
 	initscr();
-
 	resize_term(SCREEN_HEIGHT, SCREEN_WIDTH);
 	drawintroscreen();
+
 newgame:
 	memset(&alienbullet, 0, sizeof(playerbullet));
 	memset(&playerbullet, 0, sizeof(playerbullet));
 
-	initinvasion(invasion);
+	initinvasion(invasion, invasionwidth, invasionheight);
 
 	clear();
 	playership.pos = COLS / 2;	// have the players ship start in the middle of the screen
@@ -151,7 +157,6 @@ newgame:
 	alienbullet.y = LINES + 2;
 	alienbullet.x = 0;
 	
-
 	while(1){
 		inputchar = getch();
 
@@ -168,7 +173,6 @@ newgame:
 		if(elapsedtime > 100000000){
 	
 			// check if the any alien ships have been hit by a player bullet
-			// I should really put this in a function of its own
 			for(y = 0; y < INVASIONWIDTH; y++){
 				for(x = 0; x < INVASIONHEIGHT; x++){
 					for(a = 0; a < 3; a++){
@@ -235,7 +239,16 @@ newgame:
 			mvprintw(0, 2, " Score = %d ", score);
 			mvprintw(0, 17, " Lives = %d ", lives);
 			drawplayer(&playership);
-			drawinvasion(invasion, &invasiondirection);
+
+			// if there are no remaining aliens then give the player the option to play again
+			// or end the game
+			if (!drawinvasion(invasion, &invasiondirection)){
+				if(drawsuccess(0, &score)){
+					goto newgame;
+				}
+				endwin();
+				return 0;
+			}
 			drawplayerbullet(&playerbullet, 0);
 			drawalienbullet(invasion, &alienbullet);
 
@@ -422,11 +435,11 @@ bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet){
 }
 
 
-int initinvasion(spaceship invasion[][INVASIONHEIGHT]){
+int initinvasion(spaceship invasion[][INVASIONHEIGHT], int invasionwidth, int invasionheight){
 	int a, b;
 
-	for(a = 0; a < INVASIONWIDTH; a++){
-		for(b = 0; b < INVASIONHEIGHT; b++){
+	for(a = 0; a < invasionwidth; a++){
+		for(b = 0; b < invasionheight; b++){
 			// what to draw when the alien is healthy
 			strncpy(invasion[a][b].healthy[0], "  ^ ^  ", 7);
 			strncpy(invasion[a][b].healthy[1], "  0 0  ", 7);
@@ -518,6 +531,7 @@ int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, in
 	for(a = 0; a < INVASIONWIDTH; a++){
 		for(b = 0; b < INVASIONHEIGHT; b++){
 
+
 			// if one of the aliens has reached the level of the screen that is the top of the 
 			// player ship then return 1
 			// this means that the aliens have rached Earth
@@ -563,11 +577,13 @@ int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection){
 	int counter;
 	int x, y;
 	int a, b;
+	int numberofinvasionspaceships = 0;
 
 	for(y = 0; y < INVASIONHEIGHT; y++){
 		for(x = 0; x < INVASIONWIDTH; x++){
 			for(a = 0; a < 3; a++){
 				for(b = 0; b < 7; b++){
+
 					switch(invasion[x][y].health){
 						// the reason for the empty switch statements is a hack to create a delay so you actually see
 						// the ship change as it dies
@@ -580,18 +596,21 @@ int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection){
 						// is drawn changes appropriately
 						case 0:
 							mvprintw(invasion[x][y].y + a, invasion[x][y].x + b, "%c", invasion[x][y].healthy[a][b]);
+							numberofinvasionspaceships++;
 							break;
 						case 1:
 						case 2:
 						case 3:
 						case 4:
 							mvprintw(invasion[x][y].y + a, invasion[x][y].x + b, "%c", invasion[x][y].dying[a][b]);
+							numberofinvasionspaceships++;
 							break;
 						case 5:
 						case 6:
 						case 7:
 						case 8:
 							mvprintw(invasion[x][y].y + a, invasion[x][y].x + b, "%c", invasion[x][y].dead[a][b]);
+							numberofinvasionspaceships++;
 							break;
 					}
 				}
@@ -599,7 +618,7 @@ int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection){
 		}
 	}
 
-	return 0;
+	return numberofinvasionspaceships;
 }
 
 int drawintroscreen(){
@@ -719,6 +738,54 @@ int drawgameoverscreen(int code, int *score){
                         return 0;
         }
 
+        return 0;
+}
+
+int drawsuccess(int code, int *score){
+        int inputchar;
+
+        switch(code){
+                case 0:
+                        clear();
+                        drawborder();
+
+                        //attron(COLOR_PAIR(FRUIT_COLOR));
+                        mvprintw(2, 2, "                          You win  ");
+                        mvprintw(3, 2, "                      Zero aliens left");
+                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+
+                        //attron(COLOR_PAIR(SCORE_COLOR));
+                        mvprintw(7, 2, "                     Your score is %d", *score);
+                        //attroff(COLOR_PAIR(SCORE_COLOR));
+
+                        //attron(COLOR_PAIR(FRUIT_COLOR));
+                        mvprintw(9, 2, "                      Want to play again?");
+                        mvprintw(10, 2, "                       Hit 'Y' or 'N'");
+                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+
+                        refresh();
+
+                        while(1){
+                                nodelay(stdscr, FALSE);
+                                inputchar = getch();
+
+                                switch(inputchar){
+                                        case 'y':
+                                        case 'Y':
+                                                clear();
+                                		nodelay(stdscr, TRUE);
+                                                return 1;
+
+                                        case 'n':
+                                        case 'N':
+                                        case 'q':
+                                        case 'Q':
+                                                return 0;
+                                }
+                        }
+
+                        break;
+	}
         return 0;
 }
 
