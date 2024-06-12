@@ -4,10 +4,11 @@
  * 	This is my version of Space Invaders
  *
  * 	TODO
- * 	collission detection for when the aliens hit the player
+ * 	DONE collission detection for when the aliens hit the player
  * 	color
  * 	have different levels
- * 	create an intro scren and exit screen
+ * 	DONE create an intro scren and exit screen
+ * 	write the readme file
  *
  *
 */
@@ -25,11 +26,11 @@
 #define SCORE_COLOR     3
 #define ALIEN_COLOR     4
 
-#define SCREEN_HEIGHT  	30
-#define SCREEN_WIDTH    70
+#define SCREEN_HEIGHT  	60
+#define SCREEN_WIDTH    140
 
-#define INVASIONWIDTH	5
-#define INVASIONHEIGHT	3
+#define INVASIONWIDTH	10
+#define INVASIONHEIGHT	15
 
 // this struct is for the spaceships, both for the player and the aliens
 typedef struct {
@@ -57,7 +58,12 @@ int drawintroscreen();
 // or returns 0 if they choose not to play again
 int drawgameoverscreen(int code, int *score);
 
-int drawsuccess(int code, int *score);
+// gets called when the player has killed all aliens
+// changes the variable currentgamelevel to the next game level
+// when the player has finished the final level it will return:
+// 	1 if they are playing again
+// 	0 if they do not want to play again
+int gotonextlevel(int *score, int *currentgamelevel);
 
 int drawborder();
 
@@ -67,23 +73,23 @@ int drawplayerbullet(bullet *playerbullet, int pos);
 
 int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet);
 
-int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection);
+int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection, int currentgamelevel);
 
 // returns TRUE if the playership has been hit by an alien bullet
 // otherwise returns FALSE
 bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet);
 
 // initiate the invasion fleet
-int initinvasion(spaceship invasion[][INVASIONHEIGHT], int invasionwidth, int invasionheight);
+int initinvasion(spaceship invasion[][INVASIONHEIGHT]);
 
 // draw the invasion fleet
 // this function returns the number of invasion spaceships that have been moved
 // when it returns 0 then there are no remaining invasion spaceships then they have all been
 // killed by the player
-int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection);
+int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, int currentgamelevel);
 
 // change the invasiondirection variable for the invasion fleet
-int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection);
+int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, int currentgamelevel);
 
 int main(int argc, char *argv[]){
 
@@ -94,11 +100,8 @@ int main(int argc, char *argv[]){
 	int score = 0;
 	int lives = 5;
 
-	int invasionwidth = INVASIONWIDTH;
-	int invasionheight = INVASIONHEIGHT;
-
 	// this is used to store the current level in the game
-	int currentgamelevel = 0;
+	int currentgamelevel = 1;
 
 	// this is for the timer, the clock to move everything at the right time
 	// there are two timespect structures declared
@@ -128,10 +131,11 @@ int main(int argc, char *argv[]){
 	drawintroscreen();
 
 newgame:
+	invasiondirection = 3;
 	memset(&alienbullet, 0, sizeof(playerbullet));
 	memset(&playerbullet, 0, sizeof(playerbullet));
 
-	initinvasion(invasion, invasionwidth, invasionheight);
+	initinvasion(invasion);
 
 	clear();
 	playership.pos = COLS / 2;	// have the players ship start in the middle of the screen
@@ -174,7 +178,7 @@ newgame:
 	
 			// check if the any alien ships have been hit by a player bullet
 			for(y = 0; y < INVASIONWIDTH; y++){
-				for(x = 0; x < INVASIONHEIGHT; x++){
+				for(x = 0; x < currentgamelevel; x++){
 					for(a = 0; a < 3; a++){
 						for(b = 0; b < 7; b++){
 							if(invasion[y][x].health < 3){
@@ -193,7 +197,7 @@ newgame:
 			// move the invasion
 			// if imv() returns 1 then one of the aliens has collided with earth or the player
 			// then gameover() is called
-			if(moveinvasion(invasion, &playership, &invasiondirection)){
+			if(moveinvasion(invasion, &playership, &invasiondirection, currentgamelevel)){
 				if(drawgameoverscreen(2, &score)){
 						goto newgame;
 				}else{
@@ -203,14 +207,14 @@ newgame:
 			}
 	
 			// check and change the direction of the invasion
-			changeinvasiondirection(invasion, &invasiondirection);
+			changeinvasiondirection(invasion, &invasiondirection, currentgamelevel);
 
 			// increase aliens health (or rather have them die further) if they have been previously hit
 			// aliens start with health at zero
 			// when they get hit by a player bullet the health counts up
 			// depending on what level of health they have determines what image is drawn as they die
 			for(y = 0; y < INVASIONWIDTH; y++){
-				for(x = 0; x < INVASIONHEIGHT; x++){
+				for(x = 0; x < currentgamelevel; x++){
 					if((invasion[y][x].health > 0)){
 						invasion[y][x].health++;
 					}
@@ -233,22 +237,22 @@ newgame:
 				playership.health--;
 			}
 
-			// draw everthing on the screen
+			// start drawing everything on the screen
 			erase();
 			drawborder();
 			mvprintw(0, 2, " Score = %d ", score);
 			mvprintw(0, 17, " Lives = %d ", lives);
 			drawplayer(&playership);
 
-			// if there are no remaining aliens then give the player the option to play again
-			// or end the game
-			if (!drawinvasion(invasion, &invasiondirection)){
-				if(drawsuccess(0, &score)){
+			// draw the invasion and if there are no remaining aliens then goto next level
+			if (!drawinvasion(invasion, &invasiondirection, currentgamelevel)){
+				if(gotonextlevel(&score, &currentgamelevel)){
 					goto newgame;
 				}
 				endwin();
 				return 0;
 			}
+
 			drawplayerbullet(&playerbullet, 0);
 			drawalienbullet(invasion, &alienbullet);
 
@@ -259,8 +263,8 @@ newgame:
 		}
 
 		// have the aliens shoot bullets at the player
-		for(y = 0; y < INVASIONHEIGHT; y++){
-			for(x = 0; x < INVASIONWIDTH; x++){
+		for(x = 0; x < INVASIONWIDTH; x++){
+			for(y = 0; y < currentgamelevel; y++){
 				// only allow a bullet to be fired if the below conditions are true
 				// if the alienship is directly above the player AND
 				// if the alien bullet has already gone off the bottom of the screen AND
@@ -435,11 +439,11 @@ bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet){
 }
 
 
-int initinvasion(spaceship invasion[][INVASIONHEIGHT], int invasionwidth, int invasionheight){
+int initinvasion(spaceship invasion[][INVASIONHEIGHT]){
 	int a, b;
 
-	for(a = 0; a < invasionwidth; a++){
-		for(b = 0; b < invasionheight; b++){
+	for(a = 0; a < INVASIONWIDTH; a++){
+		for(b = 0; b < INVASIONHEIGHT; b++){
 			// what to draw when the alien is healthy
 			strncpy(invasion[a][b].healthy[0], "  ^ ^  ", 7);
 			strncpy(invasion[a][b].healthy[1], "  0 0  ", 7);
@@ -465,11 +469,11 @@ int initinvasion(spaceship invasion[][INVASIONHEIGHT], int invasionwidth, int in
 }
 
 // returns an integer indicating the next direction that the invasion will move
-int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection){
+int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, int currentgamelevel){
 	int a, b;
 
 	for(a = 0; a < INVASIONWIDTH; a++){
-		for(b = 0; b < INVASIONHEIGHT; b++){
+		for(b = 0; b < currentgamelevel; b++){
 
 			// each of these if statements handles what to do with each direction
 			//
@@ -525,11 +529,11 @@ int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiond
 // move the invasion fleet
 // Takes an argument which is an int and indicates the direction
 // The argument invasiondirection gets set by the function changeinvasiondirection()
-int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection){
+int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection, int currentgamelevel){
 	int a, b;
 
 	for(a = 0; a < INVASIONWIDTH; a++){
-		for(b = 0; b < INVASIONHEIGHT; b++){
+		for(b = 0; b < currentgamelevel; b++){
 
 
 			// if one of the aliens has reached the level of the screen that is the top of the 
@@ -573,13 +577,13 @@ int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, in
 	return 0;
 }
 
-int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection){
+int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, int currentgamelevel){
 	int counter;
 	int x, y;
 	int a, b;
 	int numberofinvasionspaceships = 0;
 
-	for(y = 0; y < INVASIONHEIGHT; y++){
+	for(y = 0; y < currentgamelevel; y++){
 		for(x = 0; x < INVASIONWIDTH; x++){
 			for(a = 0; a < 3; a++){
 				for(b = 0; b < 7; b++){
@@ -741,16 +745,29 @@ int drawgameoverscreen(int code, int *score){
         return 0;
 }
 
-int drawsuccess(int code, int *score){
+int gotonextlevel(int *score, int *currentgamelevel){
         int inputchar;
 
-        switch(code){
-                case 0:
+        switch(*currentgamelevel){
+                case 1:
+		case 2:
+		case 3:
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+		case 10:
+		case 11:
+		case 12:
+		case 13:
+		case 14:
                         clear();
                         drawborder();
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(2, 2, "                          You win  ");
+                        mvprintw(2, 2, "                         Level 1 Success !  ");
                         mvprintw(3, 2, "                      Zero aliens left");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
@@ -759,8 +776,8 @@ int drawsuccess(int code, int *score){
                         //attroff(COLOR_PAIR(SCORE_COLOR));
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(9, 2, "                      Want to play again?");
-                        mvprintw(10, 2, "                       Hit 'Y' or 'N'");
+                        mvprintw(9, 2, "                      ready for level %d", (*currentgamelevel + 1));
+                        mvprintw(10, 2, "                       Hit 'n' for next level");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         refresh();
@@ -770,21 +787,64 @@ int drawsuccess(int code, int *score){
                                 inputchar = getch();
 
                                 switch(inputchar){
+                                        case 'n':
+                                        case 'N':
+                                                clear();
+						// increment the value that *currentgamelevel is pointing to
+						(*currentgamelevel)++;
+                                		nodelay(stdscr, TRUE);
+						return *currentgamelevel;
+					default:
+						break;
+                        	}
+			}
+
+			break;
+		case 15:
+                        clear();
+                        drawborder();
+
+                        //attron(COLOR_PAIR(FRUIT_COLOR));
+                        mvprintw(2, 2, "                You win, you saved Earth from those nasty aliens  ");
+                        mvprintw(3, 2, "                      Zero aliens left");
+                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+
+                        //attron(COLOR_PAIR(SCORE_COLOR));
+                        mvprintw(7, 2, "                     Your score is %d", *score);
+                        //attroff(COLOR_PAIR(SCORE_COLOR));
+
+                        //attron(COLOR_PAIR(FRUIT_COLOR));
+                        mvprintw(10, 2, "                       Want to play again?");
+                        mvprintw(11, 2, "                       Hit 'Y' or 'N'");
+                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+
+                        refresh();
+
+                        while(1){
+                                nodelay(stdscr, FALSE);
+                                inputchar = getch();
+
+				// change *currentgamelevel to 1 if the player plays again
+				// or make it 0 if they want to end the game
+                                switch(inputchar){
                                         case 'y':
                                         case 'Y':
                                                 clear();
                                 		nodelay(stdscr, TRUE);
+						*currentgamelevel = 1;
                                                 return 1;
 
                                         case 'n':
                                         case 'N':
                                         case 'q':
                                         case 'Q':
+						*currentgamelevel = 0;
                                                 return 0;
-                                }
-                        }
 
-                        break;
+					default:
+						break;
+                        	}
+			}
 	}
         return 0;
 }
