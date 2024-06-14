@@ -91,6 +91,13 @@ int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, i
 // change the invasiondirection variable for the invasion fleet
 int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, int currentgamelevel);
 
+// this is a wrapper for the mvprintw
+// makes it easy to print in the centre of the screen
+int printincentreofscreen(int linetoprinton, char *stringtoprint);
+
+// print in the centre of the screen with a number being passed by reference
+int printincentreofscreenwithnumber(int linetoprinton, char *stringtoprint, int *number);
+
 int main(int argc, char *argv[]){
 
 	int inputchar;
@@ -99,6 +106,9 @@ int main(int argc, char *argv[]){
 	int a, b;
 	int score = 0;
 	int lives = 5;
+
+	// yes, its true. There is god mode in Space Invaders - gives you unlimited lives
+	int godmode = 0;
 
 	// this is used to store the current level in the game
 	int currentgamelevel = 1;
@@ -222,13 +232,17 @@ newgame:
 			}
 
 			// check if the player has no lives left
-			if(lives == 0){
+			if((lives == 0) && (godmode = 0)){
 				if(drawgameoverscreen(1, &score)){
 					goto newgame;
 				}else{
 					endwin();
 					return 0;
 				}
+			}
+
+			if(godmode){
+				lives = 5;
 			}
 		
 			// check if alienbullet has hit the player
@@ -332,6 +346,10 @@ newgame:
 				drawplayerbullet(&playerbullet, playership.pos);
 	
 				break;
+
+			case 'g':
+			case 'G':
+				godmode = 1;
 
 			default:
 				break;
@@ -630,11 +648,11 @@ int drawintroscreen(){
         drawborder();
 
 //        attron(COLOR_PAIR(FRUIT_COLOR));
-        mvprintw(2, 2, "                          Space Invaders");
-        mvprintw(3, 2, "                     Prepare to save Earth !");
-        mvprintw(5, 2, "                        Hit any key to start");
-        mvprintw(7, 2, "                         coded by Hatchet");
-        mvprintw(8, 2, "                             June 2024");
+        printincentreofscreen(2, "Space Invaders");
+        printincentreofscreen(3, "Prepare to save Earth !");
+        printincentreofscreen(5, "Hit any key to start");
+        printincentreofscreen(7, "coded by Hatchet");
+        printincentreofscreen(8, "June 2024");
 
 //        attroff(COLOR_PAIR(FRUIT_COLOR));
 
@@ -658,18 +676,18 @@ int drawgameoverscreen(int code, int *score){
                         drawborder();
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(2, 2, "                          Game Over");
-                        mvprintw(3, 2, "                        Zero lives left");
-                        mvprintw(5, 2, "               Nice try, better luck next time... ");
+                        printincentreofscreen(2, "Game Over");
+                        printincentreofscreen(3, "Zero lives left");
+                        printincentreofscreen(5, "Nice try, better luck next time... ");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         //attron(COLOR_PAIR(SCORE_COLOR));
-                        mvprintw(7, 2, "                     Your score is %d", *score);
+                        printincentreofscreenwithnumber(7, "Your score is ", score);
                         //attroff(COLOR_PAIR(SCORE_COLOR));
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(9, 2, "                      Want to play again?");
-                        mvprintw(10, 2, "                       Hit 'Y' or 'N'");
+                        printincentreofscreen(9, "Want to play again?");
+                        printincentreofscreen(10, "Hit 'Y' or 'N'");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         refresh();
@@ -701,18 +719,18 @@ int drawgameoverscreen(int code, int *score){
                         drawborder();
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(2, 2, "                          Game Over");
-                        mvprintw(3, 2, "                     The aliens reached Earth");
-                        mvprintw(5, 2, "               Nice try, better luck next time... ");
+                        printincentreofscreen(2, "Game Over");
+                        printincentreofscreen(3, "The aliens reached Earth");
+                        printincentreofscreen(5, "Nice try, better luck next time... ");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         //attron(COLOR_PAIR(SCORE_COLOR));
-                        mvprintw(7, 2, "                     Your score is %d", *score);
+                        printincentreofscreenwithnumber(7, "Your score is ", score);
                         //attroff(COLOR_PAIR(SCORE_COLOR));
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(9, 2, "                      Want to play again?");
-                        mvprintw(10, 2, "                       Hit 'Y' or 'N'");
+                        printincentreofscreen(9, "Want to play again?");
+                        printincentreofscreen(10, "Hit 'Y' or 'N'");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         refresh();
@@ -747,6 +765,7 @@ int drawgameoverscreen(int code, int *score){
 
 int gotonextlevel(int *score, int *currentgamelevel){
         int inputchar;
+	int nextlevel = (*currentgamelevel + 1);
 
         switch(*currentgamelevel){
                 case 1:
@@ -767,17 +786,17 @@ int gotonextlevel(int *score, int *currentgamelevel){
                         drawborder();
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(2, 2, "                         Level 1 Success !  ");
-                        mvprintw(3, 2, "                      Zero aliens left");
+                        printincentreofscreen(2, "Level 1 Success !  ");
+                        printincentreofscreen(3, "Zero aliens left");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         //attron(COLOR_PAIR(SCORE_COLOR));
-                        mvprintw(7, 2, "                     Your score is %d", *score);
+                        printincentreofscreenwithnumber(7, "Your score is ", score);
                         //attroff(COLOR_PAIR(SCORE_COLOR));
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(9, 2, "                      ready for level %d", (*currentgamelevel + 1));
-                        mvprintw(10, 2, "                       Hit 'n' for next level");
+                        printincentreofscreenwithnumber(9, "ready for level ", &nextlevel);
+                        printincentreofscreen(10, "Hit 'n' for next level");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         refresh();
@@ -805,17 +824,17 @@ int gotonextlevel(int *score, int *currentgamelevel){
                         drawborder();
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(2, 2, "                You win, you saved Earth from those nasty aliens  ");
-                        mvprintw(3, 2, "                      Zero aliens left");
+                        printincentreofscreen(2, "You win, you saved Earth from those nasty aliens  ");
+                        printincentreofscreen(3, "Zero aliens left");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         //attron(COLOR_PAIR(SCORE_COLOR));
-                        mvprintw(7, 2, "                     Your score is %d", *score);
+                        printincentreofscreenwithnumber(7, "Your score is d", score);
                         //attroff(COLOR_PAIR(SCORE_COLOR));
 
                         //attron(COLOR_PAIR(FRUIT_COLOR));
-                        mvprintw(10, 2, "                       Want to play again?");
-                        mvprintw(11, 2, "                       Hit 'Y' or 'N'");
+                        printincentreofscreen(10, "Want to play again?");
+                        printincentreofscreen(11, "Hit 'Y' or 'N'");
                         //attroff(COLOR_PAIR(FRUIT_COLOR));
 
                         refresh();
@@ -848,4 +867,47 @@ int gotonextlevel(int *score, int *currentgamelevel){
 	}
         return 0;
 }
+
+int printincentreofscreen(int linetoprinton, char *stringtoprint){
+	int stringlength = 0;
+	int x;
+	int indentfromleft= 0;
+
+	stringlength = strlen(stringtoprint);
+
+	// if stringtoprint is longer than the screen width then print a line of "X"
+	if(stringlength > COLS - 1){
+		for(x = 0; x < COLS; x++){
+			mvprintw(indentfromleft, x, "X");
+		}
+		return 1;
+	}
+
+	indentfromleft = (COLS / 2) - (stringlength / 2);
+	mvprintw(linetoprinton, indentfromleft, "%s", stringtoprint);
+
+	return stringlength;
+}
+
+int printincentreofscreenwithnumber(int linetoprinton, char *stringtoprint, int *number){
+	int stringlength = 0;
+	int x;
+	int indentfromleft = 0;
+
+	stringlength = strlen(stringtoprint);
+
+	// if stringtoprint is longer than the screen width then print a line of "X"
+	if(stringlength > COLS - 1){
+		for(x = 0; x < COLS; x++){
+			mvprintw(linetoprinton, x, "X");
+		}
+		return 1;
+	}
+
+	indentfromleft = (COLS / 2) - (stringlength / 2);
+	mvprintw(linetoprinton, indentfromleft, "%s%d", stringtoprint, *number);
+
+	return stringlength;
+}
+
 
