@@ -5,10 +5,14 @@
  *
  * 	TODO
  * 	DONE collission detection for when the aliens hit the player
- * 	color
- * 	have different levels
+ * 	DONE color
+ * 	DONE have different levels
  * 	DONE create an intro scren and exit screen
  * 	write the readme file
+ * 	DONE make the player spaceship look better
+ * 	check that the comments are all accurate
+ * 	add a pause option
+ * 	add a help screen
  *
  *
 */
@@ -107,8 +111,8 @@ int main(int argc, char *argv[]){
 	int score = 0;
 	int lives = 5;
 
-	// yes, its true. There is god mode in Space Invaders - gives you unlimited lives
-	int godmode = 0;
+	// yes, its true. There is cheat mode in Space Invaders - gives you unlimited lives
+	int cheatmode = 0;
 
 	// this is used to store the current level in the game
 	int currentgamelevel = 1;
@@ -130,14 +134,20 @@ int main(int argc, char *argv[]){
 	// the screen flickers with each refresh
 	spaceship playership;
 	strncpy(playership.healthy[0], "   ^   ", 7);
-	strncpy(playership.healthy[1], "  / \\  ", 7);
-	strncpy(playership.healthy[2], " // \\\\   ", 7);
+	strncpy(playership.healthy[1], "  /^\\  ", 7);
+	strncpy(playership.healthy[2], " /_|_\\   ", 7);
 
 	spaceship alienship;
 	
 	// init the screen for curses and initialise a few things
 	initscr();
 	resize_term(SCREEN_HEIGHT, SCREEN_WIDTH);
+	start_color();
+	init_pair(PLAYER_COLOR, COLOR_GREEN, COLOR_BLACK);
+	init_pair(BORDER_COLOR, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(ALIEN_COLOR, COLOR_RED, COLOR_BLACK);
+	init_pair(SCORE_COLOR, COLOR_BLUE, COLOR_BLACK);
+
 	drawintroscreen();
 
 newgame:
@@ -205,15 +215,24 @@ newgame:
 			}
 			
 			// move the invasion
-			// if imv() returns 1 then one of the aliens has collided with earth or the player
-			// then gameover() is called
+			// if moveinvasion() returns 1 then one of the aliens has collided with earth or the player
+			// then drawgameoverscreen() is called
 			if(moveinvasion(invasion, &playership, &invasiondirection, currentgamelevel)){
+				// if cheatmode is active then goto next level
+				if(cheatmode){
+					currentgamelevel++;
+					goto newgame;
+				}
+
+				// if the player has reached level the final level they can start again or quite
 				if(drawgameoverscreen(2, &score)){
-						goto newgame;
+					currentgamelevel = 1;
+					goto newgame;
 				}else{
 					endwin();
 					return 0;
 				}
+				
 			}
 	
 			// check and change the direction of the invasion
@@ -232,8 +251,9 @@ newgame:
 			}
 
 			// check if the player has no lives left
-			if((lives == 0) && (godmode = 0)){
+			if((lives == 0) && (cheatmode == 0)){
 				if(drawgameoverscreen(1, &score)){
+					currentgamelevel = 1;
 					goto newgame;
 				}else{
 					endwin();
@@ -241,7 +261,7 @@ newgame:
 				}
 			}
 
-			if(godmode){
+			if(cheatmode){
 				lives = 5;
 			}
 		
@@ -254,8 +274,18 @@ newgame:
 			// start drawing everything on the screen
 			erase();
 			drawborder();
+			attron(COLOR_PAIR(SCORE_COLOR));
 			mvprintw(0, 2, " Score = %d ", score);
 			mvprintw(0, 17, " Lives = %d ", lives);
+			attroff(COLOR_PAIR(SCORE_COLOR));
+
+			// print a "O" in the top left corner if cheatmode is active
+			if(cheatmode){
+				attron(COLOR_PAIR(BORDER_COLOR));
+				mvprintw(0, 0, "O");
+				attroff(COLOR_PAIR(BORDER_COLOR));
+			}
+
 			drawplayer(&playership);
 
 			// draw the invasion and if there are no remaining aliens then goto next level
@@ -301,8 +331,11 @@ newgame:
 				}
 
 				drawborder();
+				attron(COLOR_PAIR(SCORE_COLOR));
 				mvprintw(0, 2, " Score = %d ", score);
 				mvprintw(0, 17, " Lives = %d ", lives);
+				attroff(COLOR_PAIR(SCORE_COLOR));
+
 				drawplayer(&playership);
 
 				break;
@@ -317,8 +350,10 @@ newgame:
 				}
 
 				drawborder();
+				attron(COLOR_PAIR(SCORE_COLOR));
 				mvprintw(0, 2, " Score = %d ", score);
 				mvprintw(0, 17, " Lives = %d ", lives);
+				attroff(COLOR_PAIR(SCORE_COLOR));
 				drawplayer(&playership);
 
 				break;
@@ -338,8 +373,10 @@ newgame:
 				}
 
 				drawborder();
+				attron(COLOR_PAIR(SCORE_COLOR));
 				mvprintw(0, 2, " Score = %d ", score);
 				mvprintw(0, 17, " Lives = %d ", lives);
+				attroff(COLOR_PAIR(SCORE_COLOR));
 				drawplayer(&playership);
 
 				playerbullet.y = LINES - 5;
@@ -347,9 +384,14 @@ newgame:
 	
 				break;
 
+				// turn cheatmode on
 			case 'g':
+				cheatmode = 1;
+				break;
+				// turn cheatmode off
 			case 'G':
-				godmode = 1;
+				cheatmode = 0;
+				break;
 
 			default:
 				break;
@@ -366,7 +408,7 @@ int drawborder(){
 
         int counter;
 
-       // attron(COLOR_PAIR(BORDER_COLOR));
+	attron(COLOR_PAIR(BORDER_COLOR));
 
         // this draws the line across the top and then the line on the bottom
         for(counter = 0; counter < COLS; counter++){
@@ -380,7 +422,7 @@ int drawborder(){
                 mvprintw(counter, COLS - 1, "*");
         }
 
-//        attroff(COLOR_PAIR(BORDER_COLOR));
+	attroff(COLOR_PAIR(BORDER_COLOR));
 
         return 0;
 }
@@ -390,11 +432,13 @@ int drawplayer(spaceship *playership){
 	int topofship = LINES - 4;
 
 	// draw one character at a time with two for loops
+        attron(COLOR_PAIR(PLAYER_COLOR));
 	for(a = 0; a < 3; a++){
 		for(b = 0; b < 7; b++){
 			mvprintw(topofship + a, playership->pos + b, "%c", playership->healthy[a][b]);
 		}
 	}
+        attroff(COLOR_PAIR(PLAYER_COLOR));
 
 	return 0;
 }
@@ -413,9 +457,15 @@ int drawplayerbullet(bullet *playerbullet, int pos){
 	if(pos == 0)
 		playerbullet->y--;
 
+	if(playerbullet->y < 1){
+		return 0;
+	}
+
 	// draw two bullets, it looks better
+        attron(COLOR_PAIR(PLAYER_COLOR));
 	mvprintw(playerbullet->y, playerbullet->x, "|");
 	mvprintw(playerbullet->y + 1, playerbullet->x, "|");
+        attroff(COLOR_PAIR(PLAYER_COLOR));
 
 	return 0;
 }
@@ -427,9 +477,12 @@ int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet){
 		alienbullet->y++;
 	}
 	
+        attron(COLOR_PAIR(ALIEN_COLOR));
 	mvprintw(alienbullet->y, alienbullet->x, "|");
+
 	// draw a second '|' above the bullet
 	mvprintw(alienbullet->y - 1, alienbullet->x, "|");
+        attroff(COLOR_PAIR(ALIEN_COLOR));
 
 	return 0;
 }
@@ -601,6 +654,8 @@ int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, i
 	int a, b;
 	int numberofinvasionspaceships = 0;
 
+	attron(COLOR_PAIR(ALIEN_COLOR));
+
 	for(y = 0; y < currentgamelevel; y++){
 		for(x = 0; x < INVASIONWIDTH; x++){
 			for(a = 0; a < 3; a++){
@@ -640,6 +695,8 @@ int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, i
 		}
 	}
 
+	attroff(COLOR_PAIR(ALIEN_COLOR));
+
 	return numberofinvasionspaceships;
 }
 
@@ -647,14 +704,14 @@ int drawintroscreen(){
         clear();
         drawborder();
 
-//        attron(COLOR_PAIR(FRUIT_COLOR));
+        attron(COLOR_PAIR(PLAYER_COLOR));
         printincentreofscreen(2, "Space Invaders");
         printincentreofscreen(3, "Prepare to save Earth !");
         printincentreofscreen(5, "Hit any key to start");
         printincentreofscreen(7, "coded by Hatchet");
         printincentreofscreen(8, "June 2024");
 
-//        attroff(COLOR_PAIR(FRUIT_COLOR));
+        attroff(COLOR_PAIR(PLAYER_COLOR));
 
         // turn off nodelay before calling getch
         // to ensure that the play has to hit a key and we have the delay
@@ -675,20 +732,20 @@ int drawgameoverscreen(int code, int *score){
                         clear();
                         drawborder();
 
-                        //attron(COLOR_PAIR(FRUIT_COLOR));
+        		attron(COLOR_PAIR(PLAYER_COLOR));
                         printincentreofscreen(2, "Game Over");
                         printincentreofscreen(3, "Zero lives left");
                         printincentreofscreen(5, "Nice try, better luck next time... ");
-                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+        		attroff(COLOR_PAIR(PLAYER_COLOR));
 
-                        //attron(COLOR_PAIR(SCORE_COLOR));
+                        attron(COLOR_PAIR(SCORE_COLOR));
                         printincentreofscreenwithnumber(7, "Your score is ", score);
-                        //attroff(COLOR_PAIR(SCORE_COLOR));
+                        attroff(COLOR_PAIR(SCORE_COLOR));
 
-                        //attron(COLOR_PAIR(FRUIT_COLOR));
+        		attron(COLOR_PAIR(PLAYER_COLOR));
                         printincentreofscreen(9, "Want to play again?");
                         printincentreofscreen(10, "Hit 'Y' or 'N'");
-                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+        		attroff(COLOR_PAIR(PLAYER_COLOR));
 
                         refresh();
 
@@ -718,20 +775,20 @@ int drawgameoverscreen(int code, int *score){
                         clear();
                         drawborder();
 
-                        //attron(COLOR_PAIR(FRUIT_COLOR));
+        		attron(COLOR_PAIR(PLAYER_COLOR));
                         printincentreofscreen(2, "Game Over");
                         printincentreofscreen(3, "The aliens reached Earth");
                         printincentreofscreen(5, "Nice try, better luck next time... ");
-                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+        		attroff(COLOR_PAIR(PLAYER_COLOR));
 
-                        //attron(COLOR_PAIR(SCORE_COLOR));
+                        attron(COLOR_PAIR(SCORE_COLOR));
                         printincentreofscreenwithnumber(7, "Your score is ", score);
-                        //attroff(COLOR_PAIR(SCORE_COLOR));
+                        attroff(COLOR_PAIR(SCORE_COLOR));
 
-                        //attron(COLOR_PAIR(FRUIT_COLOR));
+                        attron(COLOR_PAIR(PLAYER_COLOR));
                         printincentreofscreen(9, "Want to play again?");
                         printincentreofscreen(10, "Hit 'Y' or 'N'");
-                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+                        attroff(COLOR_PAIR(PLAYER_COLOR));
 
                         refresh();
 
