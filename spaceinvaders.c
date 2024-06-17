@@ -13,6 +13,7 @@
  * 	check that the comments are all accurate
  * 	add a pause option
  * 	add a help screen
+ * 	add the blocks that you can shoot between and which protect you
  *
  *
 */
@@ -56,7 +57,7 @@ typedef struct {
 	bool new;
 } bullet;
 
-int drawintroscreen();
+void drawintroscreen();
 
 // prints the game over screen and return 1 if the player wants to play again
 // or returns 0 if they choose not to play again
@@ -82,6 +83,8 @@ int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, in
 // returns TRUE if the playership has been hit by an alien bullet
 // otherwise returns FALSE
 bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet);
+
+bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], int *score, bullet *playerbullet, int currentgamelevel);
 
 // initiate the invasion fleet
 int initinvasion(spaceship invasion[][INVASIONHEIGHT]);
@@ -120,8 +123,12 @@ int main(int argc, char *argv[]){
 	// this is for the timer, the clock to move everything at the right time
 	// there are two timespect structures declared
 	// the time is compared between them to control the movement of the bullets and aliens
-	struct timespec recenttime, previoustime;
-	uint64_t elapsedtime = 0;
+	struct timespec moverecenttime, moveprevioustime;
+	uint64_t moveelapsedtime = 0;
+
+	// this time is for moving bullets
+	struct timespec bulletrecenttime, bulletprevioustime;
+	uint64_t bulletelapsedtime = 0;
 
 	int invasiondirection = 3;
 	spaceship invasion[INVASIONWIDTH][INVASIONHEIGHT];
@@ -169,10 +176,14 @@ newgame:
 	drawplayer(&playership);
 	refresh();
 
-	// this is the clock that is used to measure the time to refresh the screen
-	clock_gettime(CLOCK_MONOTONIC, &recenttime);
-	previoustime.tv_sec = recenttime.tv_sec;
-	previoustime.tv_nsec = recenttime.tv_nsec;
+	// this is the clock that is used to measure the time to MOVE everything andrefresh the screen
+	clock_gettime(CLOCK_MONOTONIC, &moverecenttime);
+	moveprevioustime.tv_sec = moverecenttime.tv_sec;
+	moveprevioustime.tv_nsec = moverecenttime.tv_nsec;
+
+	clock_gettime(CLOCK_MONOTONIC, &bulletrecenttime);
+	bulletprevioustime.tv_sec = bulletrecenttime.tv_sec;
+	bulletprevioustime.tv_nsec = bulletrecenttime.tv_nsec;
 
 	inputchar = 0;
 	score = 0;
@@ -184,37 +195,44 @@ newgame:
 	while(1){
 		inputchar = getch();
 
-		// work out the amount of time that has passed since struct recenttime and struct previoustime were synched
-		// there are two timespec structures
-		// the time is compared between them to control the movement of the bullets and aliens
-		//
-		// reset recenttime
-		clock_gettime(CLOCK_MONOTONIC, &recenttime);
-		// store the number of nanoseconds that have passed since both time and previoustime were synced
-		elapsedtime = 1000000000 * (recenttime.tv_sec - previoustime.tv_sec) + recenttime.tv_nsec - previoustime.tv_nsec;		
+		// work out the amount of time that has passed since each timer was reset
+		// the time is compared between them to control the bullets and movement of aliens and the player
+		
+		clock_gettime(CLOCK_MONOTONIC, &moverecenttime);
+		clock_gettime(CLOCK_MONOTONIC, &bulletrecenttime);
+		
+		// store the number of nanoseconds that have passed since both time and moveprevioustime were synced
+		moveelapsedtime = 1000000000 * (moverecenttime.tv_sec - moveprevioustime.tv_sec) + moverecenttime.tv_nsec - moveprevioustime.tv_nsec;		
+		bulletelapsedtime = 1000000000 * (bulletrecenttime.tv_sec - bulletprevioustime.tv_sec) + bulletrecenttime.tv_nsec - bulletprevioustime.tv_nsec;		
 
-		// if this many nanoseconds have passed then move things in the game
-		if(elapsedtime > 100000000){
-	
-			// check if the any alien ships have been hit by a player bullet
-			for(y = 0; y < INVASIONWIDTH; y++){
-				for(x = 0; x < currentgamelevel; x++){
-					for(a = 0; a < 3; a++){
-						for(b = 0; b < 7; b++){
-							if(invasion[y][x].health < 3){
-								if((invasion[y][x].y + a == playerbullet.y) && (invasion[y][x].x + b == playerbullet.x)){
-									invasion[y][x].health++;
-									score++;
-									playerbullet.x = -1;
-									playerbullet.y = -1;
-								}
-							}
-						}
-					}
-				}
+
+		// this if statment looks after the bullet movements and if the player or an alien ship have been hit
+		if(bulletelapsedtime > 50000000){
+			if(isplayerhitbybullet(&playership, &alienbullet)){
+				lives--;
+				playership.health--;
+			}
+
+			drawplayerbullet(&playerbullet, 0);
+			drawalienbullet(invasion, &alienbullet);
+
+			// reset the two timers and have them match each other
+			clock_gettime(CLOCK_MONOTONIC, &bulletrecenttime);
+			bulletprevioustime.tv_sec = bulletrecenttime.tv_sec;
+			bulletprevioustime.tv_nsec = bulletrecenttime.tv_nsec;
+
+			if(cheatmode){
+				attron(COLOR_PAIR(BORDER_COLOR));
+				mvprintw(0, 0, "O");
+				attroff(COLOR_PAIR(BORDER_COLOR));
 			}
 			
-			// move the invasion
+			isalienhitbybullet(invasion, &score, &playerbullet, currentgamelevel);
+		}
+
+		// this if statement looks after the movement of the invasion
+		if(moveelapsedtime > 100000000){
+			
 			// if moveinvasion() returns 1 then one of the aliens has collided with earth or the player
 			// then drawgameoverscreen() is called
 			if(moveinvasion(invasion, &playership, &invasiondirection, currentgamelevel)){
@@ -264,13 +282,7 @@ newgame:
 			if(cheatmode){
 				lives = 5;
 			}
-		
-			// check if alienbullet has hit the player
-			if(isplayerhitbybullet(&playership, &alienbullet)){
-				lives--;
-				playership.health--;
-			}
-
+			//
 			// start drawing everything on the screen
 			erase();
 			drawborder();
@@ -296,14 +308,12 @@ newgame:
 				endwin();
 				return 0;
 			}
-
-			drawplayerbullet(&playerbullet, 0);
-			drawalienbullet(invasion, &alienbullet);
-
+			
 			// reset the two timers and have them match each other
-			clock_gettime(CLOCK_MONOTONIC, &recenttime);
-			previoustime.tv_sec = recenttime.tv_sec;
-			previoustime.tv_nsec = recenttime.tv_nsec;
+			clock_gettime(CLOCK_MONOTONIC, &moverecenttime);
+			moveprevioustime.tv_sec = moverecenttime.tv_sec;
+			moveprevioustime.tv_nsec = moverecenttime.tv_nsec;
+
 		}
 
 		// have the aliens shoot bullets at the player
@@ -405,7 +415,6 @@ newgame:
 }
 
 int drawborder(){
-
         int counter;
 
 	attron(COLOR_PAIR(BORDER_COLOR));
@@ -471,7 +480,7 @@ int drawplayerbullet(bullet *playerbullet, int pos){
 }
 
 int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet){
-
+	
 	// if the bullet is still on the screen then simply move it down one space
 	if(alienbullet->new == false){
 		alienbullet->y++;
@@ -501,12 +510,11 @@ bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet){
 				alienbullet->y = LINES + 2;
 				
 				// return 1 which is true because there has been a collission
-				return 1;
+				return true;
 			}
 		}
 	}
-
-	return 0;
+	return false;
 }
 
 
@@ -597,7 +605,6 @@ int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiond
 	return *invasiondirection;
 }
 
-// move the invasion fleet
 // Takes an argument which is an int and indicates the direction
 // The argument invasiondirection gets set by the function changeinvasiondirection()
 int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection, int currentgamelevel){
@@ -700,7 +707,7 @@ int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, i
 	return numberofinvasionspaceships;
 }
 
-int drawintroscreen(){
+void drawintroscreen(){
         clear();
         drawborder();
 
@@ -720,7 +727,7 @@ int drawintroscreen(){
         nodelay(stdscr, TRUE);
 
         clear();
-        return 0;
+        return;
 }
 
 int drawgameoverscreen(int code, int *score){
@@ -842,19 +849,13 @@ int gotonextlevel(int *score, int *currentgamelevel){
                         clear();
                         drawborder();
 
-                        //attron(COLOR_PAIR(FRUIT_COLOR));
-                        printincentreofscreen(2, "Level 1 Success !  ");
+                        attron(COLOR_PAIR(PLAYER_COLOR));
+                        printincentreofscreen(2, "Level Success !  ");
                         printincentreofscreen(3, "Zero aliens left");
-                        //attroff(COLOR_PAIR(FRUIT_COLOR));
-
-                        //attron(COLOR_PAIR(SCORE_COLOR));
                         printincentreofscreenwithnumber(7, "Your score is ", score);
-                        //attroff(COLOR_PAIR(SCORE_COLOR));
-
-                        //attron(COLOR_PAIR(FRUIT_COLOR));
                         printincentreofscreenwithnumber(9, "ready for level ", &nextlevel);
                         printincentreofscreen(10, "Hit 'n' for next level");
-                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+                        attroff(COLOR_PAIR(PLAYER_COLOR));
 
                         refresh();
 
@@ -880,19 +881,15 @@ int gotonextlevel(int *score, int *currentgamelevel){
                         clear();
                         drawborder();
 
-                        //attron(COLOR_PAIR(FRUIT_COLOR));
+                        attron(COLOR_PAIR(PLAYER_COLOR));
                         printincentreofscreen(2, "You win, you saved Earth from those nasty aliens  ");
                         printincentreofscreen(3, "Zero aliens left");
-                        //attroff(COLOR_PAIR(FRUIT_COLOR));
-
-                        //attron(COLOR_PAIR(SCORE_COLOR));
                         printincentreofscreenwithnumber(7, "Your score is d", score);
-                        //attroff(COLOR_PAIR(SCORE_COLOR));
-
-                        //attron(COLOR_PAIR(FRUIT_COLOR));
                         printincentreofscreen(10, "Want to play again?");
                         printincentreofscreen(11, "Hit 'Y' or 'N'");
-                        //attroff(COLOR_PAIR(FRUIT_COLOR));
+                        attroff(COLOR_PAIR(PLAYER_COLOR));
+
+
 
                         refresh();
 
@@ -967,4 +964,31 @@ int printincentreofscreenwithnumber(int linetoprinton, char *stringtoprint, int 
 	return stringlength;
 }
 
+bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], int *score, bullet *playerbullet, int currentgamelevel){
+	int x, y;
+	int a, b;
+	
+	// this loop steps through eachship in the invasion and then each character of each ship that is still alive
+	// if the ship is still alive then each character in the ship is compared with the location of the player bullet then:
+	// the alienship has its health increased (which means it is now going to die)
+	// the score is increased
+	// the player bullet is moved off screen
+	for(y = 0; y < INVASIONWIDTH; y++){
+		for(x = 0; x < currentgamelevel; x++){
+			for(a = 0; a < 3; a++){
+				for(b = 0; b < 7; b++){
+					if(invasion[y][x].health < 3){
+						if((invasion[y][x].y + a == playerbullet->y) && (invasion[y][x].x + b == playerbullet->x)){
+							invasion[y][x].health++;
+							*score++;
+							playerbullet->x = -1;
+							playerbullet->y = -1;
+						}
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
 
