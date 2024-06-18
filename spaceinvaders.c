@@ -37,6 +37,9 @@
 #define INVASIONWIDTH	10
 #define INVASIONHEIGHT	15
 
+#define BLOCKSHEIGHT	3
+#define BLOCKSWIDTH	20
+
 // this struct is for the spaceships, both for the player and the aliens
 typedef struct {
 	// these three strings are the ascii art for the vessels
@@ -56,6 +59,18 @@ typedef struct {
 	int x;
 	bool new;
 } bullet;
+
+typedef struct {
+	int y;
+	int x;
+	int active;
+} blockarray;
+
+int initblocks(blockarray blocks[][BLOCKSWIDTH]);
+
+int drawblocks(blockarray blocks[][BLOCKSWIDTH]);
+
+int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet *playerbullet, bullet *alienbullet);
 
 void drawintroscreen();
 
@@ -135,6 +150,10 @@ int main(int argc, char *argv[]){
 
 	bullet playerbullet;
 	bullet alienbullet;
+
+	blockarray blocks[BLOCKSHEIGHT][BLOCKSWIDTH];
+	initblocks(blocks);
+	
 
 	// declare and intialize the player spaceship
 	// There needs to be a blank space at the start and end of each string otherwise
@@ -216,11 +235,6 @@ newgame:
 			drawplayerbullet(&playerbullet, 0);
 			drawalienbullet(invasion, &alienbullet);
 
-			// reset the two timers and have them match each other
-			clock_gettime(CLOCK_MONOTONIC, &bulletrecenttime);
-			bulletprevioustime.tv_sec = bulletrecenttime.tv_sec;
-			bulletprevioustime.tv_nsec = bulletrecenttime.tv_nsec;
-
 			if(cheatmode){
 				attron(COLOR_PAIR(BORDER_COLOR));
 				mvprintw(0, 0, "O");
@@ -228,6 +242,13 @@ newgame:
 			}
 			
 			isalienhitbybullet(invasion, &score, &playerbullet, currentgamelevel);
+
+			hasbullethitblocks(blocks, &playerbullet, &alienbullet);
+			
+			// reset the two timers and have them match each other
+			clock_gettime(CLOCK_MONOTONIC, &bulletrecenttime);
+			bulletprevioustime.tv_sec = bulletrecenttime.tv_sec;
+			bulletprevioustime.tv_nsec = bulletrecenttime.tv_nsec;
 		}
 
 		// this if statement looks after the movement of the invasion
@@ -308,6 +329,8 @@ newgame:
 				endwin();
 				return 0;
 			}
+
+			drawblocks(blocks);
 			
 			// reset the two timers and have them match each other
 			clock_gettime(CLOCK_MONOTONIC, &moverecenttime);
@@ -574,15 +597,15 @@ int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiond
 			}
 
 			if((invasion[a][b].x == 1) && (*invasiondirection == 1)&& (invasion[a][b].health < 3)){
-					*invasiondirection = 0;
-					return 0;
-				}else
+				*invasiondirection = 0;
+				return 0;
+			}
 
 
 			if((invasion[a][b].x == 1) && (*invasiondirection == 0) && (invasion[a][b].health < 3)){
-					*invasiondirection = 3;
-					return 3;
-				}
+				*invasiondirection = 3;
+				return 3;
+			}
 
 			if((invasion[a][b].x == COLS - 8) && (*invasiondirection == 3) && (invasion[a][b].health < 3)){
 				*invasiondirection = 4;
@@ -991,4 +1014,20 @@ bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], int *score, bullet
 	}
 	return 0;
 }
+
+int initblocks(blockarray blocks[][BLOCKSWIDTH]){
+	int y, x;
+
+	
+	return 0;
+}
+
+int drawblocks(blockarray blocks[][BLOCKSWIDTH]){
+	return 0;
+}
+
+int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet *playerbullet, bullet *alienbullet){
+	return 0;
+}
+
 
