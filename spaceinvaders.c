@@ -76,14 +76,14 @@ void drawintroscreen();
 
 // prints the game over screen and return 1 if the player wants to play again
 // or returns 0 if they choose not to play again
-int drawgameoverscreen(int code, int *score);
+int drawgameoverscreen(int code, int score);
 
 // gets called when the player has killed all aliens
 // changes the variable currentgamelevel to the next game level
 // when the player has finished the final level it will return:
 // 	1 if they are playing again
 // 	0 if they do not want to play again
-int gotonextlevel(int *score, int *currentgamelevel);
+int gotonextlevel(int score, int *currentgamelevel);
 
 int drawborder();
 
@@ -99,7 +99,7 @@ int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, in
 // otherwise returns FALSE
 bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet);
 
-bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], int *score, bullet *playerbullet, int currentgamelevel);
+bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], bullet *playerbullet, int currentgamelevel);
 
 // initiate the invasion fleet
 int initinvasion(spaceship invasion[][INVASIONHEIGHT]);
@@ -118,7 +118,7 @@ int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiond
 int printincentreofscreen(int linetoprinton, char *stringtoprint);
 
 // print in the centre of the screen with a number being passed by reference
-int printincentreofscreenwithnumber(int linetoprinton, char *stringtoprint, int *number);
+int printincentreofscreenwithnumber(int linetoprinton, char *stringtoprint, int number);
 
 int main(int argc, char *argv[]){
 
@@ -241,7 +241,9 @@ newgame:
 				attroff(COLOR_PAIR(BORDER_COLOR));
 			}
 			
-			isalienhitbybullet(invasion, &score, &playerbullet, currentgamelevel);
+			if(isalienhitbybullet(invasion, &playerbullet, currentgamelevel)){
+				score++;
+			}
 
 			hasbullethitblocks(blocks, &playerbullet, &alienbullet);
 			
@@ -264,7 +266,7 @@ newgame:
 				}
 
 				// if the player has reached level the final level they can start again or quite
-				if(drawgameoverscreen(2, &score)){
+				if(drawgameoverscreen(2, score)){
 					currentgamelevel = 1;
 					goto newgame;
 				}else{
@@ -274,9 +276,6 @@ newgame:
 				
 			}
 	
-			// check and change the direction of the invasion
-			changeinvasiondirection(invasion, &invasiondirection, currentgamelevel);
-
 			// increase aliens health (or rather have them die further) if they have been previously hit
 			// aliens start with health at zero
 			// when they get hit by a player bullet the health counts up
@@ -289,9 +288,13 @@ newgame:
 				}
 			}
 
+
+			// check and change the direction of the invasion
+			changeinvasiondirection(invasion, &invasiondirection, currentgamelevel);
+
 			// check if the player has no lives left
 			if((lives == 0) && (cheatmode == 0)){
-				if(drawgameoverscreen(1, &score)){
+				if(drawgameoverscreen(1, score)){
 					currentgamelevel = 1;
 					goto newgame;
 				}else{
@@ -306,6 +309,7 @@ newgame:
 			//
 			// start drawing everything on the screen
 			erase();
+			mvprintw(1, 20, "invasiondirection: %d", invasiondirection);
 			drawborder();
 			attron(COLOR_PAIR(SCORE_COLOR));
 			mvprintw(0, 2, " Score = %d ", score);
@@ -323,7 +327,7 @@ newgame:
 
 			// draw the invasion and if there are no remaining aliens then goto next level
 			if (!drawinvasion(invasion, &invasiondirection, currentgamelevel)){
-				if(gotonextlevel(&score, &currentgamelevel)){
+				if(gotonextlevel(score, &currentgamelevel)){
 					goto newgame;
 				}
 				endwin();
@@ -421,6 +425,7 @@ newgame:
 			case 'g':
 				cheatmode = 1;
 				break;
+
 				// turn cheatmode off
 			case 'G':
 				cheatmode = 0;
@@ -464,13 +469,13 @@ int drawplayer(spaceship *playership){
 	int topofship = LINES - 4;
 
 	// draw one character at a time with two for loops
-        attron(COLOR_PAIR(PLAYER_COLOR));
+	attron(COLOR_PAIR(PLAYER_COLOR));
 	for(a = 0; a < 3; a++){
 		for(b = 0; b < 7; b++){
 			mvprintw(topofship + a, playership->pos + b, "%c", playership->healthy[a][b]);
 		}
 	}
-        attroff(COLOR_PAIR(PLAYER_COLOR));
+	attroff(COLOR_PAIR(PLAYER_COLOR));
 
 	return 0;
 }
@@ -494,10 +499,10 @@ int drawplayerbullet(bullet *playerbullet, int pos){
 	}
 
 	// draw two bullets, it looks better
-        attron(COLOR_PAIR(PLAYER_COLOR));
+	attron(COLOR_PAIR(PLAYER_COLOR));
 	mvprintw(playerbullet->y, playerbullet->x, "|");
 	mvprintw(playerbullet->y + 1, playerbullet->x, "|");
-        attroff(COLOR_PAIR(PLAYER_COLOR));
+	attroff(COLOR_PAIR(PLAYER_COLOR));
 
 	return 0;
 }
@@ -509,12 +514,12 @@ int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet){
 		alienbullet->y++;
 	}
 	
-        attron(COLOR_PAIR(ALIEN_COLOR));
+	attron(COLOR_PAIR(ALIEN_COLOR));
 	mvprintw(alienbullet->y, alienbullet->x, "|");
 
 	// draw a second '|' above the bullet
 	mvprintw(alienbullet->y - 1, alienbullet->x, "|");
-        attroff(COLOR_PAIR(ALIEN_COLOR));
+	attroff(COLOR_PAIR(ALIEN_COLOR));
 
 	return 0;
 }
@@ -577,9 +582,9 @@ int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiond
 	for(a = 0; a < INVASIONWIDTH; a++){
 		for(b = 0; b < currentgamelevel; b++){
 
-			// each of these if statements handles what to do with each direction
+			// The switch statement changes the direction of the invasion
 			//
-			// The values for the argument invasiondirection are below.
+			// The values for the argument *invasiondirection are below.
 			// 0 - the invasion has already stepped down 2 blocks on the left side
 			// 1 - the invasion has already stepped down 1 blocks on the left side
 			// 2 - the invasion is travelling to the left side
@@ -591,40 +596,36 @@ int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiond
 			// not checked if the array is already dead
 			// this way you can shoot all the aliens on one side so that the remaining aliens
 			// will still to right up to the wall
-			if((invasion[a][b].x == 1) && (*invasiondirection == 2) && (invasion[a][b].health < 3)){
-				*invasiondirection = 1;
-				return 1;
+			switch(*invasiondirection){
+				case 2:
+					if((invasion[a][b].x <= 1) && (*invasiondirection == 2) && (invasion[a][b].health < 8)){
+						*invasiondirection = 1;
+						return 1;
+					}
+					break;
+				case 1:
+					*invasiondirection = 0;
+					return *invasiondirection;
+				case 0:
+					*invasiondirection = 3;
+					return *invasiondirection;
+				case 3:
+					if((invasion[a][b].x >= COLS - 8) && (*invasiondirection == 3) && (invasion[a][b].health < 8)){
+						*invasiondirection = 4;
+						return 4;
+					}
+					break;
+				case 4:
+					*invasiondirection = 5;
+					return *invasiondirection;
+				case 5:
+					*invasiondirection = 2;
+					return 2;
 			}
 
-			if((invasion[a][b].x == 1) && (*invasiondirection == 1)&& (invasion[a][b].health < 3)){
-				*invasiondirection = 0;
-				return 0;
-			}
-
-
-			if((invasion[a][b].x == 1) && (*invasiondirection == 0) && (invasion[a][b].health < 3)){
-				*invasiondirection = 3;
-				return 3;
-			}
-
-			if((invasion[a][b].x == COLS - 8) && (*invasiondirection == 3) && (invasion[a][b].health < 3)){
-				*invasiondirection = 4;
-				return 4;
-			}
-
-			if((invasion[a][b].x == COLS - 8) && (*invasiondirection == 4) && (invasion[a][b].health < 3)){
-				*invasiondirection = 5;
-				return 5;
-			}
-
-			if((invasion[a][b].x == COLS - 8) && (*invasiondirection == 5) && (invasion[a][b].health < 3)){
-				*invasiondirection = 2;
-				return 2;
-			}
-			
 		}
 	}	
-	// this should never be reached 
+
 	return *invasiondirection;
 }
 
@@ -635,7 +636,6 @@ int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, in
 
 	for(a = 0; a < INVASIONWIDTH; a++){
 		for(b = 0; b < currentgamelevel; b++){
-
 
 			// if one of the aliens has reached the level of the screen that is the top of the 
 			// player ship then return 1
@@ -690,7 +690,6 @@ int drawinvasion(spaceship invasion[][INVASIONHEIGHT], int *invasiondirection, i
 		for(x = 0; x < INVASIONWIDTH; x++){
 			for(a = 0; a < 3; a++){
 				for(b = 0; b < 7; b++){
-
 					switch(invasion[x][y].health){
 						// the reason for the empty switch statements is a hack to create a delay so you actually see
 						// the ship change as it dies
@@ -753,7 +752,7 @@ void drawintroscreen(){
         return;
 }
 
-int drawgameoverscreen(int code, int *score){
+int drawgameoverscreen(int code, int score){
         int inputchar;
 
         switch(code){
@@ -762,11 +761,11 @@ int drawgameoverscreen(int code, int *score){
                         clear();
                         drawborder();
 
-        		attron(COLOR_PAIR(PLAYER_COLOR));
-                        printincentreofscreen(2, "Game Over");
-                        printincentreofscreen(3, "Zero lives left");
-                        printincentreofscreen(5, "Nice try, better luck next time... ");
-        		attroff(COLOR_PAIR(PLAYER_COLOR));
+        			attron(COLOR_PAIR(PLAYER_COLOR));
+                    printincentreofscreen(2, "Game Over");
+                    printincentreofscreen(3, "Zero lives left");
+                    printincentreofscreen(5, "Nice try, better luck next time... ");
+        			attroff(COLOR_PAIR(PLAYER_COLOR));
 
                         attron(COLOR_PAIR(SCORE_COLOR));
                         printincentreofscreenwithnumber(7, "Your score is ", score);
@@ -829,7 +828,7 @@ int drawgameoverscreen(int code, int *score){
                                 switch(inputchar){
                                         case 'y':
                                         case 'Y':
-                                                clear();
+                                        	clear();
                                 		nodelay(stdscr, TRUE);
                                                 return 1;
 
@@ -850,7 +849,7 @@ int drawgameoverscreen(int code, int *score){
         return 0;
 }
 
-int gotonextlevel(int *score, int *currentgamelevel){
+int gotonextlevel(int score, int *currentgamelevel){
         int inputchar;
 	int nextlevel = (*currentgamelevel + 1);
 
@@ -876,7 +875,7 @@ int gotonextlevel(int *score, int *currentgamelevel){
                         printincentreofscreen(2, "Level Success !  ");
                         printincentreofscreen(3, "Zero aliens left");
                         printincentreofscreenwithnumber(7, "Your score is ", score);
-                        printincentreofscreenwithnumber(9, "ready for level ", &nextlevel);
+                        printincentreofscreenwithnumber(9, "ready for level ", nextlevel);
                         printincentreofscreen(10, "Hit 'n' for next level");
                         attroff(COLOR_PAIR(PLAYER_COLOR));
 
@@ -966,7 +965,7 @@ int printincentreofscreen(int linetoprinton, char *stringtoprint){
 	return stringlength;
 }
 
-int printincentreofscreenwithnumber(int linetoprinton, char *stringtoprint, int *number){
+int printincentreofscreenwithnumber(int linetoprinton, char *stringtoprint, int number){
 	int stringlength = 0;
 	int x;
 	int indentfromleft = 0;
@@ -982,12 +981,12 @@ int printincentreofscreenwithnumber(int linetoprinton, char *stringtoprint, int 
 	}
 
 	indentfromleft = (COLS / 2) - (stringlength / 2);
-	mvprintw(linetoprinton, indentfromleft, "%s%d", stringtoprint, *number);
+	mvprintw(linetoprinton, indentfromleft, "%s%d", stringtoprint, number);
 
 	return stringlength;
 }
 
-bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], int *score, bullet *playerbullet, int currentgamelevel){
+bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], bullet *playerbullet, int currentgamelevel){
 	int x, y;
 	int a, b;
 	
@@ -1003,16 +1002,16 @@ bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], int *score, bullet
 					if(invasion[y][x].health < 3){
 						if((invasion[y][x].y + a == playerbullet->y) && (invasion[y][x].x + b == playerbullet->x)){
 							invasion[y][x].health++;
-							*score++;
 							playerbullet->x = -1;
 							playerbullet->y = -1;
+							return true;
 						}
 					}
 				}
 			}
 		}
 	}
-	return 0;
+	return false;
 }
 
 int initblocks(blockarray blocks[][BLOCKSWIDTH]){
@@ -1029,5 +1028,3 @@ int drawblocks(blockarray blocks[][BLOCKSWIDTH]){
 int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet *playerbullet, bullet *alienbullet){
 	return 0;
 }
-
-
