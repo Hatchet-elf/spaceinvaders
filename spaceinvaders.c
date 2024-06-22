@@ -13,7 +13,8 @@
  * 	check that the comments are all accurate
  * 	add a pause option
  * 	add a help screen
- * 	add the blocks that you can shoot between and which protect you
+ * 	DONE add the blocks that you can shoot between and which protect you
+ * 	add logic to recognise when the aliens have hit one of the blocks, or atleast reached a level where there is a block to be hit
  *
  *
 */
@@ -38,7 +39,7 @@
 #define INVASIONHEIGHT	15
 
 #define BLOCKSHEIGHT	3
-#define BLOCKSWIDTH	20
+#define BLOCKSWIDTH	63	
 
 // this struct is for the spaceships, both for the player and the aliens
 typedef struct {
@@ -63,7 +64,7 @@ typedef struct {
 typedef struct {
 	int y;
 	int x;
-	int active;
+	bool active;
 } blockarray;
 
 int initblocks(blockarray blocks[][BLOCKSWIDTH]);
@@ -182,6 +183,8 @@ newgame:
 	memset(&playerbullet, 0, sizeof(playerbullet));
 
 	initinvasion(invasion);
+	initblocks(blocks);
+	
 
 	clear();
 	playership.pos = COLS / 2;	// have the players ship start in the middle of the screen
@@ -309,11 +312,11 @@ newgame:
 			//
 			// start drawing everything on the screen
 			erase();
-			mvprintw(1, 20, "invasiondirection: %d", invasiondirection);
 			drawborder();
 			attron(COLOR_PAIR(SCORE_COLOR));
 			mvprintw(0, 2, " Score = %d ", score);
 			mvprintw(0, 17, " Lives = %d ", lives);
+			drawblocks(blocks);
 			attroff(COLOR_PAIR(SCORE_COLOR));
 
 			// print a "O" in the top left corner if cheatmode is active
@@ -1016,15 +1019,172 @@ bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], bullet *playerbull
 
 int initblocks(blockarray blocks[][BLOCKSWIDTH]){
 	int y, x;
+	int ystartpoint = 10;
+	int xstartpoint = 10;
+	int blockchunksize = 9;
 
-	
+	// each for loop corresponds to a group of blocks
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = 0; x < blockchunksize ; x++){
+			blocks[y][x].y = LINES - xstartpoint + y;
+			blocks[y][x].x = ystartpoint + x;
+			blocks[y][x].active = true;
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize; x < (blockchunksize * 2); x++){
+			blocks[y][x].y = LINES - xstartpoint + y;
+			blocks[y][x].x = xstartpoint + x + blockchunksize;
+			blocks[y][x].active = true;
+
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 2; x < (blockchunksize * 3); x++){
+			blocks[y][x].y = LINES - xstartpoint + y;
+			blocks[y][x].x = xstartpoint + x + (blockchunksize * 2);
+			blocks[y][x].active = true;
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 3; x < (blockchunksize * 4); x++){
+			blocks[y][x].y = LINES - xstartpoint + y;
+			blocks[y][x].x = xstartpoint + x + (blockchunksize * 3);
+			blocks[y][x].active = true;
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 4; x < (blockchunksize * 5); x++){
+			blocks[y][x].y = LINES - xstartpoint + y;
+			blocks[y][x].x = xstartpoint + x + (blockchunksize * 4);
+			blocks[y][x].active = true;
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 5; x < (blockchunksize * 6); x++){
+			blocks[y][x].y = LINES - xstartpoint + y;
+			blocks[y][x].x = xstartpoint + x + (blockchunksize * 5);
+			blocks[y][x].active = true;
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 6; x < (blockchunksize * 7); x++){
+			blocks[y][x].y = LINES - xstartpoint + y;
+			blocks[y][x].x = xstartpoint + x + (blockchunksize * 6);
+			blocks[y][x].active = true;
+		}
+	}
+
 	return 0;
 }
 
 int drawblocks(blockarray blocks[][BLOCKSWIDTH]){
+	int y, x;
+	int ystartpoint = 10;
+	int xstartpoint = 10;
+	int blockchunksize = 9; // the width of the group of blocks
+
+	// each for loop is for a block of the squares that you can shoot or hide behind
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = 0; x < blockchunksize ; x++){
+			if(blocks[y][x].active){
+				mvprintw(LINES - xstartpoint + y, ystartpoint + x, "X");
+			}else{
+				mvprintw(LINES - xstartpoint + y, ystartpoint + x, " ");
+			}
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize; x < (blockchunksize * 2); x++){
+			if(blocks[y][x].active){
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + blockchunksize, "X");
+			}else{
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + blockchunksize, " ");
+			}
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 2; x < (blockchunksize * 3); x++){
+			if(blocks[y][x].active){
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 2), "X");
+			}else{
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 2), " ");
+			}
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 3; x < (blockchunksize * 4); x++){
+			if(blocks[y][x].active){
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 3), "X");
+			}else{
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 3), " ");
+			}
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 4; x < (blockchunksize * 5); x++){
+			if(blocks[y][x].active){
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 4), "X");
+			}else{
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 4), " ");
+			}
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 5; x < (blockchunksize * 6); x++){
+			if(blocks[y][x].active){
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 5), "X");
+			}else{
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 5), " ");
+			}
+		}
+	}
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = blockchunksize * 6; x < (blockchunksize * 7); x++){
+			if(blocks[y][x].active){
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 6), "X");
+			}else{
+				mvprintw(LINES - ystartpoint + y, xstartpoint + x + (blockchunksize * 6), " ");
+			}
+		}
+	}
+
 	return 0;
 }
 
 int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet *playerbullet, bullet *alienbullet){
+	int y, x;
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = 0; x < BLOCKSWIDTH; x++){
+			// if the y and x axis of the bullet is equal to the corresponding axis's for the blocks
+			// AND
+			// if the corresponding block is active then mark the block as false, which means it has been hit
+			if((blocks[y][x].y == playerbullet->y) && (blocks[y][x].x == playerbullet->x) && blocks[y][x].active){
+				playerbullet->x = -1;
+				playerbullet->y = -1;
+				blocks[y][x].active = false;
+			}
+			if((blocks[y][x].y == alienbullet->y) && (blocks[y][x].x == alienbullet->x) && blocks[y][x].active){
+				alienbullet->x = -1;
+				alienbullet->y = -1;
+				blocks[y][x].active = false;
+			}
+		}
+	}
+
+
 	return 0;
 }
