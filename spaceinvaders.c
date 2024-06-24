@@ -17,6 +17,7 @@
  * 	add logic to recognise when the aliens have hit one of the blocks, or atleast reached a level where there is a block to be hit
  * 	add multiple bullets for the invasion
  * 	create more interesting levels, you get more bullets as you advance and so do the aliens
+ * 	work out why pause makes the game jittery
  *
  *
 */
@@ -331,10 +332,13 @@ newgame:
 			attroff(COLOR_PAIR(SCORE_COLOR));
 
 			// print a "O" in the top left corner if cheatmode is active
+			// print maxplayerbullets in the bottom left corner
+			// print the current game level next maxplayerbullets
 			if(cheatmode){
 				attron(COLOR_PAIR(BORDER_COLOR));
 				mvprintw(0, 0, "O");
 				mvprintw(LINES - 1, 0, "%d", maxplayerbullets);
+				mvprintw(LINES - 1, 4, "Level: %d", currentgamelevel);
 				attroff(COLOR_PAIR(BORDER_COLOR));
 			}
 
@@ -421,7 +425,7 @@ newgame:
 				// shoot a bullet when spacebar is hit
 			case ' ':
 				// do a loop to check if any bullet can be shot
-				// check if there are any bullets in the bullet array that are available and if there is then shoot
+				// shoot a bullet if there are not already more then maxplayer bullets on screen
 				for(a = 0; a < maxplayerbullets; a++){
 					if(playerbullet[a].y < 1){
 						playerbullet[a].y = LINES - 5;
@@ -440,18 +444,24 @@ newgame:
 
 				break;
 
+			case 'p':
+			case 'P':
+				pausegame();
+				break;
+
 				// turn cheatmode on
-			case 'g':
+			case 'c':
 				cheatmode = true;
 				break;
 
 				// turn cheatmode off
-			case 'G':
+			case 'C':
 				cheatmode = false;
 				maxplayerbullets = defaultmaxplayerbullets;
 				break;
 
-			case 'p':
+				// increase or reduce the number of bullets the player can have onscren
+			case 'b':
 				if(cheatmode){
 					maxplayerbullets++;
 					if(maxplayerbullets > 20){
@@ -460,7 +470,7 @@ newgame:
 				}
 				break;
 
-			case 'P':
+			case 'B':
 				if(cheatmode){
 					maxplayerbullets--;
 					if(maxplayerbullets < 5){
@@ -469,13 +479,27 @@ newgame:
 				}
 				break;
 
+				// go up or down a game level
+			case 'n':
+				if(cheatmode){
+					currentgamelevel++;
+					goto newgame;
+				}
+				break;
+
+			case 'N':
+				if(cheatmode){
+					currentgamelevel--;
+					goto newgame;
+				}
+				break;
+
+
 			default:
 				break;
 		}
 	}
-
 	endwin();
-
 	return 0;
 
 }
@@ -1041,7 +1065,7 @@ bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], bullet playerbulle
 			// stepping through each character on the alienship
 			for(a = 0; a < 3; a++){
 				for(b = 0; b < 7; b++){
-					if(invasion[y][x].health < 3){
+					if(invasion[y][x].health == 0){
 						//stepping through each of the players bullets
 						for(c = 0; c < maxplayerbullets; c++){
 							if((invasion[y][x].y + a == playerbullet[c].y) && (invasion[y][x].x + b == playerbullet[c].x)){
