@@ -11,12 +11,12 @@
  * 	write the readme file
  * 	DONE make the player spaceship look better
  * 	check that the comments are all accurate
- * 	add a pause option
+ * 	DONE add a pause option
  * 	add a help screen
  * 	DONE add the blocks that you can shoot between and which protect you
  * 	add logic to recognise when the aliens have hit one of the blocks, or atleast reached a level where there is a block to be hit
- * 	add multiple bullets for the invasion
- * 	create more interesting levels, you get more bullets as you advance and so do the aliens
+ * 	DONE add multiple bullets for the invasion
+ * 	DONE create more interesting levels, you get more bullets as you advance and so do the aliens
  * 	work out why pause makes the game jittery
  *
  *
@@ -43,6 +43,9 @@
 
 #define BLOCKSHEIGHT	3
 #define BLOCKSWIDTH	63	
+
+#define DEFAULTMAXALIENBULLETS 2
+#define DEFAULTMAXPLAYERBULLETS 3
 
 // this struct is for the spaceships, both for the player and the aliens
 typedef struct {
@@ -77,7 +80,7 @@ int initblocks(blockarray blocks[][BLOCKSWIDTH]);
 
 int drawblocks(blockarray blocks[][BLOCKSWIDTH]);
 
-int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet playerbullet[], int maxplayerbullets, bullet *alienbullet);
+int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet playerbullet[], int maxplayerbullets, bullet *alienbullet, int maxalienbullets);
 
 void drawintroscreen();
 
@@ -90,7 +93,7 @@ int drawgameoverscreen(int code, int score);
 // when the player has finished the final level it will return:
 // 	1 if they are playing again
 // 	0 if they do not want to play again
-int gotonextlevel(int score, int *currentgamelevel);
+int gotonextlevel(int score, int *currentgamelevel, int *maxplayerbullets, int *maxalienbullets);
 
 int drawborder();
 
@@ -98,13 +101,15 @@ int drawplayer(spaceship *playership);
 
 int drawplayerbullet(bullet playerbullet[], int maxplayerbullets, int pos);
 
-int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet);
+int alienshoots(spaceship *playership, spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet, int maxalienbullets, int currentgamelevel);
+
+int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet, int maxalienbullets);
 
 int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection, int currentgamelevel);
 
 // returns TRUE if the playership has been hit by an alien bullet
 // otherwise returns FALSE
-bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet);
+bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet, int maxalienbullets);
 
 bool isalienhitbybullet(spaceship invasion[][INVASIONHEIGHT], bullet playerbullet[], int maxplayerbullets, int currentgamelevel);
 
@@ -155,14 +160,12 @@ int main(int argc, char *argv[]){
 	int invasiondirection = 3;
 	spaceship invasion[INVASIONWIDTH][INVASIONHEIGHT];
 
-	// default is 5 player bullets on screen
-	// this can be modified however during the game if cheat mode is active
-	int defaultmaxplayerbullets = 5;
-	int maxplayerbullets = defaultmaxplayerbullets;
+	int maxplayerbullets = DEFAULTMAXPLAYERBULLETS;
 
+	int maxalienbullets = DEFAULTMAXALIENBULLETS;
 	// 20 bullets is the maximum onscreen possible
 	bullet playerbullet[20];
-	bullet alienbullet;
+	bullet alienbullet[20];
 
 	blockarray blocks[BLOCKSHEIGHT][BLOCKSWIDTH];
 	initblocks(blocks);
@@ -191,7 +194,7 @@ int main(int argc, char *argv[]){
 
 newgame:
 	invasiondirection = 3;
-	memset(&alienbullet, 0, sizeof(bullet));
+	memset(&alienbullet, 0, sizeof(bullet) * 20);
 	memset(&playerbullet, 0, sizeof(bullet) * 20);
 
 	initinvasion(invasion);
@@ -222,8 +225,10 @@ newgame:
 	inputchar = 0;
 	lives = 5;
 
-	alienbullet.y = LINES + 2;
-	alienbullet.x = 0;
+	for(a = 0; a < maxalienbullets; a++){
+		alienbullet[a].y = LINES + 2;
+		alienbullet[a].x = 0;
+	}
 	
 	while(1){
 		inputchar = getch();
@@ -241,7 +246,7 @@ newgame:
 
 		// this timer works with the bullet movements and the functions that need to run whenever a bullet moves
 		if(bulletelapsedtime > 50000000){
-			if(isplayerhitbybullet(&playership, &alienbullet)){
+			if(isplayerhitbybullet(&playership, alienbullet, maxalienbullets)){
 				lives--;
 				playership.health--;
 			}
@@ -251,7 +256,7 @@ newgame:
 			}
 
 			drawplayerbullet(playerbullet, maxplayerbullets, 0);
-			drawalienbullet(invasion, &alienbullet);
+			drawalienbullet(invasion, alienbullet, maxalienbullets);
 
 			if(cheatmode){
 				attron(COLOR_PAIR(BORDER_COLOR));
@@ -259,7 +264,7 @@ newgame:
 				attroff(COLOR_PAIR(BORDER_COLOR));
 			}
 			
-			hasbullethitblocks(blocks, playerbullet, maxplayerbullets, &alienbullet);
+			hasbullethitblocks(blocks, playerbullet, maxplayerbullets, alienbullet, maxalienbullets);
 			
 			// reset the two timers and have them match each other
 			clock_gettime(CLOCK_MONOTONIC, &bulletrecenttime);
@@ -346,7 +351,7 @@ newgame:
 
 			// draw the invasion and if there are no remaining aliens then goto next level
 			if (!drawinvasion(invasion, &invasiondirection, currentgamelevel)){
-				if(gotonextlevel(score, &currentgamelevel)){
+				if(gotonextlevel(score, &currentgamelevel, &maxplayerbullets, &maxalienbullets)){
 					goto newgame;
 				}
 				endwin();
@@ -360,22 +365,9 @@ newgame:
 			moveprevioustime.tv_sec = moverecenttime.tv_sec;
 			moveprevioustime.tv_nsec = moverecenttime.tv_nsec;
 
-		}
-
-		// have the aliens shoot bullets at the player
-		for(x = 0; x < INVASIONWIDTH; x++){
-			for(y = 0; y < currentgamelevel; y++){
-				// only allow a bullet to be fired if the below conditions are true
-				// if the alienship is directly above the player AND
-				// if the alien bullet has already gone off the bottom of the screen AND
-				// if the alien has not yet been hit by a player bullet
-				if((invasion[x][y].x == playership.pos) && (alienbullet.y >= LINES) && (invasion[x][y].health == 0)){
-					alienbullet.y = invasion[x][y].y;
-					alienbullet.x = invasion[x][y].x + 3;
-				}
-			}
-		}
+			alienshoots(&playership, invasion, alienbullet, maxalienbullets, currentgamelevel);
  
+		}
 		switch(inputchar){
 			case KEY_RIGHT:
 				playership.pos++;
@@ -457,7 +449,7 @@ newgame:
 				// turn cheatmode off
 			case 'C':
 				cheatmode = false;
-				maxplayerbullets = defaultmaxplayerbullets;
+				maxplayerbullets = DEFAULTMAXPLAYERBULLETS;
 				break;
 
 				// increase or reduce the number of bullets the player can have onscren
@@ -567,45 +559,49 @@ int drawplayerbullet(bullet playerbullet[], int maxplayerbullets, int pos){
 	return 0;
 }
 
-int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet){
-	
-	// if the bullet is still on the screen then simply move it down one space
-	if(alienbullet->new == false){
-		alienbullet->y++;
+int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet, int maxalienbullets){
+	int a = 0;	
+
+	for(a= 0; a< maxalienbullets; a++){
+		alienbullet[a].y++;
+
+		// dont let the alien bullet be drawn over the bottom border line
+		if(alienbullet[a].y >= LINES - 1){
+			alienbullet[a].y = LINES + 1;
+			continue;
+		}
+
+		attron(COLOR_PAIR(ALIEN_COLOR));
+		mvprintw(alienbullet[a].y, alienbullet[a].x, "|");
+
+		// draw a second '|' above the bullet
+		mvprintw(alienbullet[a].y - 1, alienbullet[a].x, "|");
+		// draw an empty character behind the bullet to ensure that we dont leave a trace
+		mvprintw(alienbullet[a].y - 2, alienbullet[a].x, " ");
+		attroff(COLOR_PAIR(ALIEN_COLOR));
+
 	}
-	
-	// dont let the alien bullet be drawn over the bottom border line
-	if(alienbullet->y >= LINES - 1){
-		return 0;
-	}
-
-	attron(COLOR_PAIR(ALIEN_COLOR));
-	mvprintw(alienbullet->y, alienbullet->x, "|");
-
-	// draw a second '|' above the bullet
-	mvprintw(alienbullet->y - 1, alienbullet->x, "|");
-	// draw an empty character behind the bullet to ensure that we dont leave a trace
-	mvprintw(alienbullet->y - 2, alienbullet->x, " ");
-	attroff(COLOR_PAIR(ALIEN_COLOR));
-
 	return 0;
 }
 
-bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet){
-	int a, b;
+bool isplayerhitbybullet(spaceship *playership, bullet *alienbullet, int maxalienbullets){
+	int a, b, c;
+
 	// x is the top of the player ship
 	int topofship = LINES - 4;
 
-	for(a = 0; a < 3; a++){
-		for(b = 0; b < 7; b++){
-			if((topofship + a == alienbullet->y) && (playership->pos + b == alienbullet->x)){
+	for(c= 0; c < maxalienbullets; c++){
+		for(a = 0; a < 3; a++){
+			for(b = 0; b < 7; b++){
+				if((topofship + a == alienbullet[c].y) && (playership->pos + b == alienbullet[c].x)){
 
-				// if the player ship has been hit then set alien bullet to -1 for y axis so it doesn't show on the screen
-				alienbullet->x = -1;
-				alienbullet->y = LINES + 2;
-				
-				// return 1 which is true because there has been a collission
-				return true;
+					// if the player ship has been hit then set alien bullet to LINES + 1 for y axis so it doesn't show on the screen
+					alienbullet[c].x = -1;
+					alienbullet[c].y = LINES + 1;
+					
+					// return 1 which is true because there has been a collission
+					return true;
+				}
 			}
 		}
 	}
@@ -916,52 +912,51 @@ int drawgameoverscreen(int code, int score){
         return 0;
 }
 
-int gotonextlevel(int score, int *currentgamelevel){
+int gotonextlevel(int score, int *currentgamelevel, int *maxplayerbullets, int *maxalienbullets){
         int inputchar;
 	int nextlevel = (*currentgamelevel + 1);
 
         switch(*currentgamelevel){
                 case 1:
-		case 2:
-		case 3:
-		case 4:
-		case 5:
-		case 6:
-		case 7:
-		case 8:
-		case 9:
-		case 10:
-                        clear();
-                        drawborder();
-
-                        attron(COLOR_PAIR(PLAYER_COLOR));
-                        printincentreofscreen(2, "Level Success !  ");
-                        printincentreofscreen(3, "Zero aliens left");
-                        printincentreofscreenwithnumber(7, "Your score is ", score);
-                        printincentreofscreenwithnumber(9, "ready for level ", nextlevel);
-                        printincentreofscreen(10, "Hit 'n' for next level");
-                        attroff(COLOR_PAIR(PLAYER_COLOR));
-
-                        refresh();
-
-                        while(1){
-                                nodelay(stdscr, FALSE);
-                                inputchar = getch();
-
-                                switch(inputchar){
-                                        case 'n':
-                                        case 'N':
-                                                clear();
-						// increment the value that *currentgamelevel is pointing to
-						(*currentgamelevel)++;
-                                		nodelay(stdscr, TRUE);
-						return *currentgamelevel;
-					default:
-						break;
-                        	}
-			}
-
+			*maxplayerbullets = 4;
+			*maxalienbullets = 3;
 			break;
+		case 2:
+			*maxplayerbullets = 5;
+			*maxalienbullets = 4;
+			break;
+		case 3:
+			*maxplayerbullets = 6;
+			*maxalienbullets = 4;
+			break;
+		case 4:
+			*maxplayerbullets = 7;
+			*maxalienbullets = 4;
+			break;
+		case 5:
+			*maxplayerbullets = 8;
+			*maxalienbullets = 4;
+			break;
+		case 6:
+			*maxplayerbullets = 9;
+			*maxalienbullets = 5;
+			break;
+		case 7:
+			*maxplayerbullets = 10;
+			*maxalienbullets = 5;
+			break;
+		case 8:
+			*maxplayerbullets = 11;
+			*maxalienbullets = 6;
+			break;
+		case 9:
+			*maxplayerbullets = 10;
+			*maxalienbullets = 6;
+			break;
+		case 10:
+			*maxplayerbullets = 10;
+			*maxalienbullets = 6;
+  			break;
 		case 11:
                         clear();
                         drawborder();
@@ -969,7 +964,13 @@ int gotonextlevel(int score, int *currentgamelevel){
                         attron(COLOR_PAIR(PLAYER_COLOR));
                         printincentreofscreen(2, "You win, you saved Earth from those nasty aliens  ");
                         printincentreofscreen(3, "Zero aliens left");
-                        printincentreofscreenwithnumber(7, "Your score is %d", score);
+                        attroff(COLOR_PAIR(PLAYER_COLOR));
+
+			attron(COLOR_PAIR(ALIEN_COLOR));
+                        printincentreofscreenwithnumber(7, "Your score is ", score);
+			attroff(COLOR_PAIR(ALIEN_COLOR));
+
+                        attron(COLOR_PAIR(PLAYER_COLOR));
                         printincentreofscreen(10, "Want to play again?");
                         printincentreofscreen(11, "Hit 'Y' or 'N'");
                         attroff(COLOR_PAIR(PLAYER_COLOR));
@@ -1004,6 +1005,45 @@ int gotonextlevel(int score, int *currentgamelevel){
                         	}
 			}
 	}
+
+      	clear();
+	drawborder();
+
+	attron(COLOR_PAIR(PLAYER_COLOR));
+	printincentreofscreen(3, "Level Success !  ");
+	printincentreofscreen(4, "Zero aliens left");
+	printincentreofscreenwithnumber(7, "Your score is ", score);
+	printincentreofscreenwithnumber(8, "ready for level ", nextlevel);
+	attroff(COLOR_PAIR(PLAYER_COLOR));
+
+	attron(COLOR_PAIR(ALIEN_COLOR));
+	printincentreofscreenwithnumber(12, "FIREPOWER UPDATED - CURRENT PLAYER AMMO ", *maxplayerbullets);
+	printincentreofscreenwithnumber(14, "BUT BEWARE - THE ALIENS AMMOS IS NOW  ", *maxalienbullets);
+	attroff(COLOR_PAIR(ALIEN_COLOR));
+
+	attron(COLOR_PAIR(PLAYER_COLOR));
+	printincentreofscreen(17, "Hit 'n' for next level");
+	attroff(COLOR_PAIR(PLAYER_COLOR));
+
+	refresh();
+
+	while(1){
+		nodelay(stdscr, FALSE);
+		inputchar = getch();
+
+		switch(inputchar){
+			case 'n':
+			case 'N':
+				clear();
+				// increment the value that *currentgamelevel is pointing to
+				(*currentgamelevel)++;
+				nodelay(stdscr, TRUE);
+				return *currentgamelevel;
+			default:
+				break;
+		}
+	}
+
         return 0;
 }
 
@@ -1226,33 +1266,36 @@ int drawblocks(blockarray blocks[][BLOCKSWIDTH]){
 			}
 		}
 	}
-
 	return 0;
 }
 
-int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet playerbullet[], int maxplayerbullets, bullet *alienbullet){
+int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet playerbullet[], int maxplayerbullets, bullet *alienbullet, int maxalienbullets){
 	int y, x;
-	int a;
+	int a, b;
 
 	// stepping through each of the individual characters that make up the blocks
 	for(y = 0; y < BLOCKSHEIGHT; y++){
 		for(x = 0; x < BLOCKSWIDTH; x++){
 			// stepping through each of the players bullets
 			for(a = 0; a < maxplayerbullets; a++){
-			// if the y and x axis of the bullet is equal to the corresponding axis's for the blocks
-			// AND
-			// if the corresponding block is active then mark the block as false, which means it has been hit
-			if((blocks[y][x].y == playerbullet[a].y) && (blocks[y][x].x == playerbullet[a].x) && blocks[y][x].active){
-				playerbullet[0].x = -1;
-				playerbullet[0].y = -1;
-				blocks[y][x].active = false;
+				// if the y and x axis of the bullet is equal to the corresponding axis's for the blocks
+				// AND
+				// if the corresponding block is active then mark the block as false, which means it has been hit
+				if((blocks[y][x].y == playerbullet[a].y) && (blocks[y][x].x == playerbullet[a].x) && blocks[y][x].active){
+					playerbullet[0].x = -1;
+					playerbullet[0].y = -1;
+					blocks[y][x].active = false;
+				}
 			}
-			if((blocks[y][x].y == alienbullet->y) && (blocks[y][x].x == alienbullet->x) && blocks[y][x].active){
-				alienbullet->x = -1;
-				alienbullet->y = -1;
-				blocks[y][x].active = false;
+			// do the same as above however checking for any alien bullets hitting the blocks
+			for(b = 0; b < maxalienbullets; b++){
+				if((blocks[y][x].y == alienbullet[b].y) && (blocks[y][x].x == alienbullet[b].x) && blocks[y][x].active){
+					alienbullet[b].x = -1;
+					alienbullet[b].y = -1;
+					blocks[y][x].active = false;
+				}
 			}
-			}
+			
 		}
 	}
 
@@ -1267,4 +1310,30 @@ void pausegame(){
 	nodelay(stdscr, TRUE);
 
 	return;
+}
+
+int alienshoots(spaceship *playership, spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet, int maxalienbullets, int currentgamelevel){
+	int x, y;
+	int a;
+
+	for(x = 0; x < INVASIONWIDTH; x++){
+		for(y = 0; y < currentgamelevel; y++){
+			// only allow a bullet to be fired if the below conditions are true
+			// if the alienship is directly above the player AND
+			// if the alien has not yet been hit by a player bullet
+			if((invasion[x][y].x == playership->pos) && (invasion[x][y].health == 0)){
+				//
+						// check for the next avaiable bullet and shoot
+						// the next available bullet will be the next bullet that has gone off the screen
+						for(a= 0; a < maxalienbullets; a++){
+							if(alienbullet[a].y >= LINES){
+								alienbullet[a].y = invasion[x][y].y;
+								alienbullet[a].x = invasion[x][y].x + 3;
+								return 0;
+							}
+						}
+				}
+			}
+		}
+	return 1;
 }
