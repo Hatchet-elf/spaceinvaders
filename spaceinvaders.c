@@ -12,13 +12,11 @@
  * 	DONE make the player spaceship look better
  * 	check that the comments are all accurate
  * 	DONE add a pause option
- * 	add a help screen
+ * 	DONE add a help screen
  * 	DONE add the blocks that you can shoot between and which protect you
- * 	add logic to recognise when the aliens have hit one of the blocks, or atleast reached a level where there is a block to be hit
+ * 	DONE add logic to recognise when the aliens have hit one of the blocks, or atleast reached a level where there is a block to be hit
  * 	DONE add multiple bullets for the invasion
  * 	DONE create more interesting levels, you get more bullets as you advance and so do the aliens
- * 	work out why pause makes the game jittery
- *
  *
 */
  
@@ -34,6 +32,7 @@
 #define BORDER_COLOR    2
 #define SCORE_COLOR     3
 #define ALIEN_COLOR     4
+#define BLOCKS_COLOR	5
 
 #define SCREEN_HEIGHT  	60
 #define SCREEN_WIDTH    140
@@ -74,11 +73,15 @@ typedef struct {
 } blockarray;
 
 // a debugging function
+// for some reason pause makes the bullets jittery, I suspect this is something in Curses 
 void pausegame();
 
 int initblocks(blockarray blocks[][BLOCKSWIDTH]);
 
 int drawblocks(blockarray blocks[][BLOCKSWIDTH]);
+
+// returns the x location of the highest block 
+int gethighestblock(blockarray blocks[][BLOCKSWIDTH]);
 
 int hasbullethitblocks(blockarray blocks[][BLOCKSWIDTH], bullet playerbullet[], int maxplayerbullets, bullet *alienbullet, int maxalienbullets);
 
@@ -105,7 +108,7 @@ int alienshoots(spaceship *playership, spaceship invasion[][INVASIONHEIGHT], bul
 
 int drawalienbullet(spaceship invasion[][INVASIONHEIGHT], bullet *alienbullet, int maxalienbullets);
 
-int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection, int currentgamelevel);
+int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection, int currentgamelevel, blockarray blocks[][BLOCKSWIDTH]);
 
 // returns TRUE if the playership has been hit by an alien bullet
 // otherwise returns FALSE
@@ -189,6 +192,7 @@ int main(int argc, char *argv[]){
 	init_pair(BORDER_COLOR, COLOR_YELLOW, COLOR_BLACK);
 	init_pair(ALIEN_COLOR, COLOR_RED, COLOR_BLACK);
 	init_pair(SCORE_COLOR, COLOR_BLUE, COLOR_BLACK);
+	init_pair(BLOCKS_COLOR, COLOR_MAGENTA, COLOR_BLACK);
 
 	drawintroscreen();
 
@@ -277,7 +281,7 @@ newgame:
 			
 			// if moveinvasion() returns 1 then one of the aliens has collided with earth or the player
 			// then drawgameoverscreen() is called
-			if(moveinvasion(invasion, &playership, &invasiondirection, currentgamelevel)){
+			if(moveinvasion(invasion, &playership, &invasiondirection, currentgamelevel, blocks)){
 				// if cheatmode is active then goto next level
 				if(cheatmode){
 					currentgamelevel++;
@@ -474,18 +478,10 @@ newgame:
 				// go up or down a game level
 			case 'n':
 				if(cheatmode){
-					currentgamelevel++;
+					gotonextlevel(score, &currentgamelevel, &maxplayerbullets, &maxalienbullets);
 					goto newgame;
 				}
 				break;
-
-			case 'N':
-				if(cheatmode){
-					currentgamelevel--;
-					goto newgame;
-				}
-				break;
-
 
 			default:
 				break;
@@ -694,8 +690,10 @@ int changeinvasiondirection(spaceship invasion[][INVASIONHEIGHT], int *invasiond
 
 // Takes an argument which is an int and indicates the direction
 // The argument invasiondirection gets set by the function changeinvasiondirection()
-int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection, int currentgamelevel){
+int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, int *invasiondirection, int currentgamelevel, blockarray blocks[][BLOCKSWIDTH]){
 	int a, b;
+
+	int highestblock = gethighestblock(blocks);
 
 	for(a = 0; a < INVASIONWIDTH; a++){
 		for(b = 0; b < currentgamelevel; b++){
@@ -707,6 +705,13 @@ int moveinvasion(spaceship invasion[][INVASIONHEIGHT], spaceship *playership, in
 				return 1;
 				break;
 			}
+
+			// if the invasion has reached the same level one of the blocks
+			if((invasion[a][b].y == highestblock - 4) && invasion[a][b].health == 0){
+				return 2;
+				break;
+			}
+
 
 			switch(*invasiondirection){
 				// each switch statement moves the ship according to the invasiondirection variable
@@ -802,8 +807,21 @@ void drawintroscreen(){
         printincentreofscreen(5, "Hit any key to start");
         printincentreofscreen(7, "coded by Hatchet");
         printincentreofscreen(8, "June 2024");
-
         attroff(COLOR_PAIR(PLAYER_COLOR));
+
+        attron(COLOR_PAIR(ALIEN_COLOR));
+        printincentreofscreen(10, "Use the spacebar to shoot");
+        printincentreofscreen(11, "The arrow keys move left and right");
+        attroff(COLOR_PAIR(ALIEN_COLOR));
+
+        attron(COLOR_PAIR(SCORE_COLOR));
+        printincentreofscreen(13, "You can shoot a couple of bullets at a time at the start of the game");
+        printincentreofscreen(14, "As the levels advance both you and the aliens get more bullets");
+        attroff(COLOR_PAIR(SCORE_COLOR));
+
+        attron(COLOR_PAIR(BLOCKS_COLOR));
+        printincentreofscreen(16, "Good Luck !!");
+        attroff(COLOR_PAIR(BLOCKS_COLOR));
 
         // turn off nodelay before calling getch
         // to ensure that the play has to hit a key and we have the delay
@@ -1190,11 +1208,28 @@ int initblocks(blockarray blocks[][BLOCKSWIDTH]){
 	return 0;
 }
 
+int gethighestblock(blockarray blocks[][BLOCKSWIDTH]){
+	int y, x;
+	int highestblock = 0;
+
+	for(y = 0; y < BLOCKSHEIGHT; y++){
+		for(x = 0; x < BLOCKSWIDTH; x++){
+			if(blocks[y][x].y > highestblock){
+				highestblock = blocks[y][x].y;
+			}
+		}
+
+	}
+	return highestblock;
+}
+
 int drawblocks(blockarray blocks[][BLOCKSWIDTH]){
 	int y, x;
 	int ystartpoint = 10;
 	int xstartpoint = 10;
 	int blockchunksize = 9; // the width of the group of blocks
+
+	attron(COLOR_PAIR(BLOCKS_COLOR));
 
 	// each for loop is for a block of the squares that you can shoot or hide behind
 	for(y = 0; y < BLOCKSHEIGHT; y++){
@@ -1266,6 +1301,9 @@ int drawblocks(blockarray blocks[][BLOCKSWIDTH]){
 			}
 		}
 	}
+
+	attroff(COLOR_PAIR(BLOCKS_COLOR));
+
 	return 0;
 }
 
@@ -1316,6 +1354,11 @@ int alienshoots(spaceship *playership, spaceship invasion[][INVASIONHEIGHT], bul
 	int x, y;
 	int a;
 
+	int bulletvarience = 0;
+
+	// have the aliens shoot around the player, rather than always directly on top
+	bulletvarience = (rand() % 7);
+
 	for(x = 0; x < INVASIONWIDTH; x++){
 		for(y = 0; y < currentgamelevel; y++){
 			// only allow a bullet to be fired if the below conditions are true
@@ -1328,7 +1371,7 @@ int alienshoots(spaceship *playership, spaceship invasion[][INVASIONHEIGHT], bul
 						for(a= 0; a < maxalienbullets; a++){
 							if(alienbullet[a].y >= LINES){
 								alienbullet[a].y = invasion[x][y].y;
-								alienbullet[a].x = invasion[x][y].x + 3;
+								alienbullet[a].x = invasion[x][y].x + bulletvarience;
 								return 0;
 							}
 						}
