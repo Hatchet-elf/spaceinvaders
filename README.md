@@ -2,8 +2,9 @@
 
 This is my first attempt at a full game. It is written in C and uses the Curses library.
 
-Space Invaders was one of those games I got to play on a friends Atari 2600 as a kid. I still remember the first time playing it.
-I enjoyed making this game and my kids have enjoyed playing it.
+Space Invaders was one of those games I got to play on a friends Atari 2600 as a kid. 
+I still remember the first time playing it.
+I enjoyed making this game and my kids have enjoyed testing it for me.
 
 ![plot](Screenshot.jpg)
 
