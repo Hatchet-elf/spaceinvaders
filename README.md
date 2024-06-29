@@ -22,7 +22,8 @@ sudo apt-get install libncurses5-dev libncursesw5-dev
 
 ## Author
 
-* **Eric Brown** 
+* **hatchet-elf** 
+* **https://github.com/hatchet-elf/spaceinvaders**
 
 
 ## License
