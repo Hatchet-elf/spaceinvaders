@@ -2,13 +2,16 @@
 
 This is my first attempt at a full game. It is written in C and uses the Curses library.
 
+Space Invaders was one of those games I got to play on a friends Atari 2600 as a kid. I still remember the first time playing it.
+I enjoyed making this game and my kids have enjoyed playing it.
+
 ![plot](Screenshot.jpg)
 
 ## Getting Started
 
 The game comes with a makefile. Simply type make when in the directory and it will compile.
 
-### Prerequisites
+## Prerequisites
 
 You will need to have the Curses library. The below command will install it if you don't already have it.
 
