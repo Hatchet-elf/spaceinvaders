@@ -2,6 +2,8 @@
 
 This is my first attempt at a full game. It is written in C and uses the Curses library.
 
+![plot](./screenshot.jpg)
+
 ## Getting Started
 
 The game comes with a makefile. Simply type make when in the directory and it will compile.
