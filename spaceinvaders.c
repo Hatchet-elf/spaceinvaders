@@ -19,7 +19,7 @@
 #define ALIEN_COLOR     4
 #define BLOCKS_COLOR	5
 
-#define SCREEN_HEIGHT  	60
+#define SCREEN_HEIGHT  	50
 #define SCREEN_WIDTH    140
 
 #define INVASIONWIDTH	10
