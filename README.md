@@ -2,7 +2,7 @@
 
 This is my first attempt at a full game. It is written in C and uses the Curses library.
 
-![plot](./screenshot.jpg)
+![plot](Screenshot.jpg)
 
 ## Getting Started
 
