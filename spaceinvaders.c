@@ -1330,10 +1330,10 @@ int alienshoots(spaceship *playership, spaceship invasion[][INVASIONHEIGHT], bul
 	int x, y;
 	int a;
 
-	int bulletvarience = 0;
+	int bulletvariance = 0;
 
 	// have the aliens aim with a bit of variability, rather than always directly on top
-	bulletvarience = (rand() % 7);
+	bulletvariance = (rand() % 7);
 
 	for(x = 0; x < INVASIONWIDTH; x++){
 		for(y = 0; y < currentgamelevel; y++){
@@ -1347,7 +1347,7 @@ int alienshoots(spaceship *playership, spaceship invasion[][INVASIONHEIGHT], bul
 						for(a= 0; a < maxalienbullets; a++){
 							if(alienbullet[a].y >= LINES){
 								alienbullet[a].y = invasion[x][y].y;
-								alienbullet[a].x = invasion[x][y].x + bulletvarience;
+								alienbullet[a].x = invasion[x][y].x + bulletvariance;
 								return 0;
 							}
 						}
